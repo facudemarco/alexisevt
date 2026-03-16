@@ -1,23 +1,23 @@
-node_modules/
-.next/
-out/
-build/
-.env*.local
-.vercel
-*.log
+# node_modules/
+# .next/
+# out/
+# build/
+# .env*.local
+# .vercel
+# *.log
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.pytest_cache/
-venv/
-env/
-.env
+# # Python
+# __pycache__/
+# *.py[cod]
+# *$py.class
+# .pytest_cache/
+# venv/
+# env/
+# .env
 
-# Testing - Excluido por petición
-/system_tests/
+# # Testing - Excluido por petición
+# /system_tests/
 
-# Base de Datos Hardcodeada Local
-*.db
-*.sqlite3
+# # Base de Datos Hardcodeada Local
+# *.db
+# *.sqlite3
