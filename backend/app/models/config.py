@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, SmallInteger
+from sqlalchemy import Column, Integer, String, Text, JSON
 from app.db.session import Base
 
 class Destino(Base):
@@ -17,13 +17,18 @@ class Hotel(Base):
     __tablename__ = "hoteles"
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(255), nullable=False)
-    estrellas = Column(SmallInteger, nullable=True)
-    ubicacion = Column(String(255), nullable=False, default="")
+    direccion = Column(String(500), nullable=True)
+    descripcion = Column(Text, nullable=True)
+    imagenes = Column(JSON, nullable=True)  # lista de URLs de imágenes
 
 class Transporte(Base):
     __tablename__ = "transportes"
     id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String(255), nullable=False)
+    nombre = Column(String(255), nullable=False)  # nombre de la empresa
+    tipo = Column(String(100), nullable=True)  # "Bus Semicama", "Bus Cama", "Aéreo"
+    horario_salida_desde = Column(String(10), nullable=True)  # "00:00"
+    horario_salida_hasta = Column(String(10), nullable=True)  # "04:30"
+    horario_regreso = Column(String(10), nullable=True)  # "10:00"
 
 class Servicio(Base):
     __tablename__ = "servicios"

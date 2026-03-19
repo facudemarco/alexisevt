@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 # --- Generic Config Schema ---
 class ConfigItemBase(BaseModel):
@@ -14,7 +14,7 @@ class ConfigItemInDBBase(ConfigItemBase):
     class Config:
         from_attributes = True
 
-# Specific Schemas
+# Destino / Categoria
 class Destino(ConfigItemInDBBase): pass
 class DestinoCreate(ConfigItemCreate): pass
 
@@ -25,16 +25,34 @@ class CategoriaCreate(ConfigItemCreate):
     slug: Optional[str] = None
     imagen_url: Optional[str] = None
 
-class Hotel(ConfigItemInDBBase):
-    estrellas: Optional[int] = None
-    ubicacion: str = ""
-class HotelCreate(ConfigItemCreate):
-    estrellas: Optional[int] = None
-    ubicacion: str = ""
+# Hotel (con campos extendidos)
+class HotelBase(ConfigItemBase):
+    direccion: Optional[str] = None
+    descripcion: Optional[str] = None
+    imagenes: List[str] = []
 
-class Transporte(ConfigItemInDBBase): pass
-class TransporteCreate(ConfigItemCreate): pass
+class HotelCreate(HotelBase): pass
 
+class Hotel(HotelBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+# Transporte (con scheduling)
+class TransporteBase(ConfigItemBase):
+    tipo: Optional[str] = None
+    horario_salida_desde: Optional[str] = None
+    horario_salida_hasta: Optional[str] = None
+    horario_regreso: Optional[str] = None
+
+class TransporteCreate(TransporteBase): pass
+
+class Transporte(TransporteBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+# Servicio / PuntoAscenso
 class Servicio(ConfigItemInDBBase): pass
 class ServicioCreate(ConfigItemCreate): pass
 

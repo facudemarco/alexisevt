@@ -8,9 +8,10 @@ from app.crud import crud_package
 
 router = APIRouter()
 
+
 @router.get("/", response_model=List[Paquete])
 def read_paquetes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """Público: Lista los paquetes."""
+    """Público: Lista los paquetes activos (no borradores)."""
     return crud_package.get_paquetes(db, skip=skip, limit=limit)
 
 @router.get("/by-category/{slug}", response_model=List[Paquete])
@@ -29,8 +30,26 @@ def read_paquete(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Paquete no encontrado")
     return paquete
 
+
 @router.post("/", response_model=Paquete, dependencies=[Depends(get_current_admin_user)])
 def create_paquete(paquete_in: PaqueteCreate, db: Session = Depends(get_db)):
-    """Solo Admin: Crea un nuevo paquete con sus relaciones M2M."""
+    """Solo Admin: Crea un nuevo paquete con sus relaciones."""
     return crud_package.create_paquete(db=db, paquete=paquete_in)
 
+
+@router.put("/{id}", response_model=Paquete, dependencies=[Depends(get_current_admin_user)])
+def update_paquete(id: int, paquete_in: PaqueteUpdate, db: Session = Depends(get_db)):
+    """Solo Admin: Actualiza un paquete existente."""
+    paquete = crud_package.update_paquete(db=db, paquete_id=id, paquete_in=paquete_in)
+    if not paquete:
+        raise HTTPException(status_code=404, detail="Paquete no encontrado")
+    return paquete
+
+
+@router.delete("/{id}", dependencies=[Depends(get_current_admin_user)])
+def delete_paquete(id: int, db: Session = Depends(get_db)):
+    """Solo Admin: Elimina un paquete."""
+    paquete = crud_package.delete_paquete(db=db, paquete_id=id)
+    if not paquete:
+        raise HTTPException(status_code=404, detail="Paquete no encontrado")
+    return {"ok": True}

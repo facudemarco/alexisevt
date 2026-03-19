@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/F/documents/iweb/AlexisEVT/frontend/src/app -type f \\\\\\(-name *.tsx -o -name *.ts -o -name *.jsx -o -name *.js \\\\\\))",
+      "Bash(ls:*)",
+      "Bash(xargs grep:*)",
+      "Bash(npm run:*)",
+      "Bash(npx next:*)",
+      "Bash(npx tsc:*)",
+      "Bash(venv/Scripts/python -c \"from app.models import Base, Paquete, PaqueteHotel, Hotel, Transporte; print\\(''OK''\\)\")",
+      "Bash(python -m py_compile app/models/config.py app/models/package.py app/schemas/config.py app/schemas/package.py app/crud/crud_package.py app/api/routers/packages.py)",
+      "Bash(curl -s http://localhost:8000/api/v1/packages/)",
+      "Bash(curl -sv http://localhost:8000/api/v1/packages/)",
+      "Bash(python -m py_compile app/core/config.py)"
+    ]
+  }
+}
