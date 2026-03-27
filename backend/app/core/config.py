@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     )
     SERVE_STATIC_LOCALLY: bool = True
 
+    # ── CORS ─────────────────────────────────────────────────────────────────
+    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:3011"]
+
     # ── SMTP ─────────────────────────────────────────────────────────────────
     SMTP_HOST:     str  = ""
     SMTP_PORT:     int  = 587
