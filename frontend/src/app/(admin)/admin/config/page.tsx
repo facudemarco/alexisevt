@@ -132,16 +132,10 @@ function HotelModal({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/uploads/image`,
-        { method: "POST", body: fd }
-      );
-      if (!res.ok) throw new Error("Error al subir imagen");
-      const data = await res.json();
-      const base = (process.env.NEXT_PUBLIC_API_URL ?? "").replace("/api/v1", "");
-      set("imagenes", [...form.imagenes, `${base}${data.url}`]);
-    } catch {
-      setError("No se pudo subir la imagen.");
+      const data = await fetchApi("/uploads/image", { method: "POST", body: fd });
+      set("imagenes", [...form.imagenes, data.url]);
+    } catch (e: any) {
+      setError(e.message || "No se pudo subir la imagen.");
     } finally {
       setUploadingImg(false);
     }

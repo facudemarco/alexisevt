@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from app.api.deps import get_db
 from app.api.deps_security import get_current_admin_user
@@ -32,7 +33,14 @@ def dict_router(c_name: str, schema_base, schema_create, model, crud_module, sch
 
     @sub_router.delete("/{id}", response_model=schema_base, dependencies=[Depends(get_current_admin_user)])
     def delete_item(id: int, db: Session = Depends(get_db)):
-        item = crud_module.remove(db=db, model=model, id=id)
+        try:
+            item = crud_module.remove(db=db, model=model, id=id)
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail=f"No se puede eliminar '{c_name}' porque está siendo utilizado en paquetes u otros registros. Desasígnelo primero."
+            )
         if not item:
             raise HTTPException(status_code=404, detail="Item no encontrado")
         return item
