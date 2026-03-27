@@ -22,7 +22,11 @@ async def lifespan(app: FastAPI):
     yield
     # Al apagar
 
-app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    lifespan=lifespan,
+    root_path="/MdpuF8KsXiRArNIHtI6pXO2XyLSJMTQ8_Alexis/api" # <--- ESTO ES CLAVE
+)
 
 # Rate limiting — el handler convierte RateLimitExceeded → HTTP 429
 app.state.limiter = limiter
