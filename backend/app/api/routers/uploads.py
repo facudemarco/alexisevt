@@ -7,7 +7,7 @@ from app.models.user import User
 from app.core.config import settings
 
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-MAX_SIZE_MB = 10
+MAX_SIZE_MB = 1000
 
 router = APIRouter()
 
