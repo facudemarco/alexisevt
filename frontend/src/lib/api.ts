@@ -1,15 +1,23 @@
 import Cookies from "js-cookie";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const token = Cookies.get("access_token");
   
-  const headers = {
-    "Content-Type": "application/json",
+  // 1. Armamos los headers base (incluyendo el token si existe)
+  const headers: Record<string, string> = {
     ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
+
+  // 2. LA MAGIA: Si el body NO es un archivo (FormData), forzamos JSON.
+  // Si es un archivo, eliminamos el Content-Type y dejamos que el navegador haga su trabajo.
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = headers["Content-Type"] || "application/json";
+  } else {
+    delete headers["Content-Type"];
+  }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
