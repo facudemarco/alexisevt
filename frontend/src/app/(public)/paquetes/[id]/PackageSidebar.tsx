@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, ChevronDown, ChevronUp, Loader2, CheckCircle } from "lucide-react";
+import { Users, ChevronDown, ChevronUp, Loader2, CheckCircle, MessageCircle } from "lucide-react";
 import { Paquete, PuntoAscenso } from "@/types/package";
 import { useAuth } from "@/components/auth-provider";
 import { fetchApi } from "@/lib/api";
@@ -27,9 +27,13 @@ function formatPrice(n: number, moneda: string) {
   return moneda === "ARS" ? "$" + n.toLocaleString("es-AR") : `${moneda} ${n.toLocaleString("es-AR")}`;
 }
 
+const WHATSAPP_NUMBER = "5491121721486"; // Matches footer: 11-2172-1486
+
 export function PackageSidebar({ paquete }: Props) {
   const { isAuthenticated, role } = useAuth();
   const isVendedor = isAuthenticated && role === "vendedor";
+  const isPublic = !isAuthenticated;
+  const canBooking = isVendedor || isPublic; // Both vendedor and public users can book
   const puntosAscenso: PuntoAscenso[] = paquete.puntos_ascenso ?? [];
 
   // Step 1
@@ -63,37 +67,42 @@ export function PackageSidebar({ paquete }: Props) {
     setPasajeros((prev) => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p));
   }
 
-  async function handleSubmit() {
-    // Validate required fields
+  function validatePassengers(): boolean {
     for (let i = 0; i < pasajeros.length; i++) {
       const p = pasajeros[i];
       if (!p.nombre.trim() || !p.apellido.trim()) {
         setError(`Completá nombre y apellido del pasajero ${i + 1}.`);
         setExpanded(i);
-        return;
+        return false;
       }
       if (!p.dni.trim()) {
         setError(`Ingresá el DNI del pasajero ${i + 1}.`);
         setExpanded(i);
-        return;
+        return false;
       }
       if (!p.fecha_nacimiento) {
         setError(`Ingresá la fecha de nacimiento del pasajero ${i + 1}.`);
         setExpanded(i);
-        return;
+        return false;
       }
       if (!p.telefono.trim()) {
         setError(`Ingresá el teléfono del pasajero ${i + 1}.`);
         setExpanded(i);
-        return;
+        return false;
       }
       if (puntosAscenso.length > 0 && !p.punto_ascenso_id) {
         setError(`Seleccioná el lugar de ascenso del pasajero ${i + 1}.`);
         setExpanded(i);
-        return;
+        return false;
       }
     }
     setError("");
+    return true;
+  }
+
+  // Vendedor: submit via API
+  async function handleSubmitVendedor() {
+    if (!validatePassengers()) return;
     setSaving(true);
     try {
       await fetchApi("/bookings/", {
@@ -123,6 +132,53 @@ export function PackageSidebar({ paquete }: Props) {
     }
   }
 
+  // Public: compose WhatsApp message
+  function handleSubmitWhatsApp() {
+    if (!validatePassengers()) return;
+
+    const destinoNombre = paquete.destino?.nombre ?? "Sin destino";
+    let fechaSalida = "";
+    if (paquete.tipo_salidas === "DIARIAS") {
+      fechaSalida = "Salidas diarias";
+    } else if (paquete.fecha_salida) {
+      const [y, m, d] = paquete.fecha_salida.split("-");
+      fechaSalida = `${d}/${m}/${y}`;
+    }
+
+    let msg = `*Hola! Vi este producto en la web y quiero reservar*\n\n`;
+    msg += `*Nueva Reserva - AlexisEVT*\n`;
+    msg += `*Destino:* ${destinoNombre}\n`;
+    if (fechaSalida) msg += `*Fecha de salida:* ${fechaSalida}\n`;
+    if (paquete.categoria) msg += `*Categoría:* ${paquete.categoria.nombre}\n`;
+    msg += `*Pasajeros:* ${adultos} adulto${adultos !== 1 ? "s" : ""}`;
+    if (menores > 0) msg += ` + ${menores} menor${menores !== 1 ? "es" : ""}`;
+    msg += `\n`;
+    msg += `*Precio total estimado:* ${formatPrice(precioTotal, paquete.moneda)}\n`;
+    msg += `\n── *Detalle de pasajeros* ──\n`;
+
+    pasajeros.forEach((p, idx) => {
+      const tipo = idx < adultos ? "Adulto" : "Menor";
+      msg += `\n*Pasajero ${idx + 1} (${tipo})*\n`;
+      msg += `   Nombre: ${p.nombre} ${p.apellido}\n`;
+      msg += `   DNI: ${p.dni}\n`;
+      // Format date of birth
+      if (p.fecha_nacimiento) {
+        const [y, m, d] = p.fecha_nacimiento.split("-");
+        msg += `   Fecha de nacimiento: ${d}/${m}/${y}\n`;
+      }
+      msg += `   Teléfono: ${p.telefono}\n`;
+      if (p.punto_ascenso_id) {
+        const punto = puntosAscenso.find((pa) => String(pa.id) === p.punto_ascenso_id);
+        msg += `   Lugar de ascenso: ${punto?.nombre_lugar ?? p.punto_ascenso_id}\n`;
+      }
+    });
+
+    const encodedMsg = encodeURIComponent(msg);
+    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMsg}`;
+    window.open(whatsappUrl, "_blank");
+    setStep("success");
+  }
+
   return (
     <div className="space-y-4">
       {/* Price card */}
@@ -135,15 +191,10 @@ export function PackageSidebar({ paquete }: Props) {
           )}
         </div>
         <p className="text-sm font-semibold text-gray-700">En base doble/triple/cuádruple</p>
-        {!isVendedor && (
-          <a href="/admin/login" className="block w-full text-center bg-brand-primary hover:bg-brand-primary/90 text-white font-bold py-3 rounded-xl transition-colors">
-            Iniciar sesión para reservar
-          </a>
-        )}
       </div>
 
       {/* Step 1 — seleccionar pasajeros */}
-      {isVendedor && step === "select" && (
+      {canBooking && step === "select" && (
         <div className="bg-white rounded-2xl shadow p-6 space-y-4">
           <p className="font-bold text-gray-800 text-sm">Pasajeros</p>
 
@@ -179,7 +230,7 @@ export function PackageSidebar({ paquete }: Props) {
       )}
 
       {/* Step 2 — datos por pasajero */}
-      {isVendedor && step === "passengers" && (
+      {canBooking && step === "passengers" && (
         <div className="bg-white rounded-2xl shadow overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <p className="font-bold text-gray-800 text-sm">{totalPax} pasajero{totalPax !== 1 ? "s" : ""} · {formatPrice(precioTotal, paquete.moneda)}</p>
@@ -285,18 +336,28 @@ export function PackageSidebar({ paquete }: Props) {
           )}
 
           <div className="px-6 pb-5 pt-2">
-            <button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="w-full bg-[#1D5D8C] hover:bg-[#164a70] text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-70 text-sm"
-            >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirmar reserva"}
-            </button>
+            {isVendedor ? (
+              <button
+                onClick={handleSubmitVendedor}
+                disabled={saving}
+                className="w-full bg-[#1D5D8C] hover:bg-[#164a70] text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-70 text-sm"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirmar reserva"}
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmitWhatsApp}
+                className="w-full bg-[#25D366] hover:bg-[#1fb855] text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Enviar reserva por WhatsApp
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* Step 3 — éxito */}
+      {/* Step 3 — éxito (vendedor) */}
       {isVendedor && step === "success" && (
         <div className="bg-white rounded-2xl shadow p-6 text-center space-y-3">
           <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
@@ -310,6 +371,21 @@ export function PackageSidebar({ paquete }: Props) {
             className="block w-full text-center border border-gray-300 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 transition-colors"
           >
             Cargar otra reserva
+          </button>
+        </div>
+      )}
+
+      {/* Step 3 — éxito (público / WhatsApp) */}
+      {isPublic && step === "success" && (
+        <div className="bg-white rounded-2xl shadow p-6 text-center space-y-3">
+          <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
+          <p className="font-bold text-gray-900 text-lg">¡Reserva enviada!</p>
+          <p className="text-sm text-gray-500">Tu reserva fue enviada por WhatsApp. Nos pondremos en contacto a la brevedad para confirmarla.</p>
+          <button
+            onClick={() => { setStep("select"); setPasajeros([emptyPax()]); setAdultos(1); setMenores(0); setError(""); }}
+            className="block w-full text-center border border-gray-300 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 transition-colors"
+          >
+            Hacer otra reserva
           </button>
         </div>
       )}
