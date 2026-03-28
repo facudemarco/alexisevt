@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -11,7 +9,7 @@ services:
     environment:
       # Usando Base de Datos local SQLite para rápido desarrollo y mockups
       DATABASE_URL: sqlite:////app/local_dev.db
-      SECRET_KEY: ${JWT_SECRET:MdpuF8KsXiRArNlHtl6pXO2XyLSJMTQ8_Alexis}
+      SECRET_KEY: ${JWT_SECRET:-MdpuF8KsXiRArNlHtl6pXO2XyLSJMTQ8_Alexis}
     volumes:
       - ./backend:/app
     
