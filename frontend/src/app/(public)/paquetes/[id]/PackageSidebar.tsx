@@ -49,17 +49,20 @@ export function PackageSidebar({ paquete }: Props) {
     }
   }, [isAdmin]);
 
-  // Hotel selector (cuando hay múltiples hoteles con precio propio)
-  const hotelesConPrecio = paquete.hotel_detalles?.filter((d) => d.hotel && d.precio != null && d.precio > 0) ?? [];
-  const tieneOpcionesHotel = hotelesConPrecio.length > 1;
-  const primerHotelId = hotelesConPrecio[0]?.hotel_id != null ? String(hotelesConPrecio[0].hotel_id) : "";
+  // Todos los hoteles del paquete con info de hotel
+  const todosHoteles = paquete.hotel_detalles?.filter((d) => d.hotel) ?? [];
+  const tieneOpcionesHotel = todosHoteles.length > 1;
+  const primerHotelId = todosHoteles[0]?.hotel_id != null ? String(todosHoteles[0].hotel_id) : "";
   const [hotelSeleccionado, setHotelSeleccionado] = useState<string>(primerHotelId);
 
   const hotelActual = tieneOpcionesHotel
-    ? hotelesConPrecio.find((d) => String(d.hotel_id) === hotelSeleccionado) ?? hotelesConPrecio[0]
-    : hotelesConPrecio[0];
+    ? todosHoteles.find((d) => String(d.hotel_id) === hotelSeleccionado) ?? todosHoteles[0]
+    : todosHoteles[0];
 
-  const precioBase = hotelActual?.precio ?? paquete.precio_base;
+  // precio = precio del hotel elegido (si tiene), si no precio_base del paquete
+  const precioBase = (hotelActual?.precio != null && hotelActual.precio > 0)
+    ? hotelActual.precio
+    : paquete.precio_base;
 
   // Step 1
   const [adultos, setAdultos] = useState(1);
@@ -220,14 +223,14 @@ export function PackageSidebar({ paquete }: Props) {
           {tieneOpcionesHotel ? "Precio por persona" : "Precio por persona"}
         </p>
 
-        {/* Selector de hotel si hay múltiples con precio */}
+        {/* Selector de hotel cuando hay 2+ hoteles */}
         {tieneOpcionesHotel && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
               Seleccioná tu hotel
             </label>
             <div className="space-y-2">
-              {hotelesConPrecio.map((d) => (
+              {todosHoteles.map((d) => (
                 <label
                   key={d.hotel_id}
                   className={`flex items-center justify-between gap-3 cursor-pointer px-4 py-3 rounded-xl border-2 transition-colors ${
@@ -250,9 +253,11 @@ export function PackageSidebar({ paquete }: Props) {
                       {d.regimen && <p className="text-xs text-gray-500">{d.regimen}</p>}
                     </div>
                   </div>
-                  <span className="text-sm font-black text-[#1D5D8C] flex-shrink-0">
-                    {formatPrice(d.precio!, paquete.moneda)}
-                  </span>
+                  {d.precio != null && d.precio > 0 && (
+                    <span className="text-sm font-black text-[#1D5D8C] flex-shrink-0">
+                      {formatPrice(d.precio, paquete.moneda)}
+                    </span>
+                  )}
                 </label>
               ))}
             </div>

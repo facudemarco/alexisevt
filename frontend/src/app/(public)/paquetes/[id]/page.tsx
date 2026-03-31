@@ -230,16 +230,7 @@ export default async function PackageDetailPage({
                           </div>
                         )}
 
-                        <div className="flex items-start justify-between gap-4 mb-2">
-                          <h4 className="font-bold text-gray-900">{det.hotel!.nombre}</h4>
-                          {det.precio != null && det.precio > 0 && (
-                            <span className="text-base font-black text-[#1D5D8C] flex-shrink-0">
-                              {paquete.moneda === "USD" ? "U$D " : "$ "}
-                              {Number(det.precio).toLocaleString("es-AR")}
-                              <span className="text-xs font-semibold text-gray-500 ml-1">/ persona</span>
-                            </span>
-                          )}
-                        </div>
+                        <h4 className="font-bold text-gray-900 mb-2">{det.hotel!.nombre}</h4>
 
                         <div className="space-y-2 text-sm text-gray-700 border border-gray-100 rounded-xl p-3">
                           {det.hotel!.direccion && (
@@ -265,6 +256,16 @@ export default async function PackageDetailPage({
                             </div>
                           )}
                         </div>
+
+                        {det.precio != null && det.precio > 0 && (
+                          <div className="mt-3 flex items-center justify-between bg-[#1D5D8C]/5 border border-[#1D5D8C]/20 rounded-xl px-4 py-3">
+                            <span className="text-sm font-semibold text-gray-700">Precio por persona</span>
+                            <span className="text-lg font-black text-[#1D5D8C]">
+                              {paquete.moneda === "USD" ? "U$D " : "$ "}
+                              {Number(det.precio).toLocaleString("es-AR")}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

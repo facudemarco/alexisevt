@@ -26,7 +26,12 @@ export default function EditPackagePage() {
           titulo_subtitulo: pkg.titulo_subtitulo ?? "",
           moneda: pkg.moneda ?? "ARS",
           precio_base: String(pkg.precio_base ?? ""),
-          precio_adicional: String(pkg.precio_adicional ?? ""),
+          adicionales_precio: Array.isArray(pkg.adicionales_json?.adicionales_precio)
+            ? pkg.adicionales_json.adicionales_precio.map((a: any) => ({
+                nombre: a.nombre ?? "",
+                valor: a.valor ? String(a.valor) : "",
+              }))
+            : [],
           adicionales: Array.isArray(pkg.adicionales) && pkg.adicionales.length > 0 ? pkg.adicionales : [""],
           transporte_activo: Array.isArray(pkg.transportes) && pkg.transportes.length > 0,
           transporte_id: pkg.transportes?.[0]?.id ? String(pkg.transportes[0].id) : "",

@@ -21,6 +21,11 @@ interface HotelDetalle {
   precio: string;
 }
 
+interface AdicionalPrecio {
+  nombre: string;
+  valor: string;
+}
+
 interface FormState {
   destino_id: string;
   categoria_id: string;
@@ -32,8 +37,8 @@ interface FormState {
   duracion_noches: string;
   titulo_subtitulo: string;
   moneda: string;
-  precio_base: string;
-  precio_adicional: string;
+  precio_base: string;          // usado solo cuando alojamiento_activo = false
+  adicionales_precio: AdicionalPrecio[];
   adicionales: string[];
   transporte_activo: boolean;
   transporte_id: string;
@@ -48,6 +53,7 @@ interface FormState {
 }
 
 const EMPTY_HOTEL: HotelDetalle = { hotel_id: "", regimen: "", cantidad_noches: "", precio: "" };
+const EMPTY_ADICIONAL_PRECIO: AdicionalPrecio = { nombre: "", valor: "" };
 
 const EMPTY: FormState = {
   destino_id: "", categoria_id: "", imagen_url: "",
@@ -55,7 +61,8 @@ const EMPTY: FormState = {
   fecha_salida: "", fecha_regreso: "",
   duracion_dias: "", duracion_noches: "",
   titulo_subtitulo: "", moneda: "ARS",
-  precio_base: "", precio_adicional: "",
+  precio_base: "",
+  adicionales_precio: [],
   adicionales: [""],
   transporte_activo: false, transporte_id: "",
   transporte_tipo: "", horario_salida: "", horario_regreso: "",
@@ -219,6 +226,14 @@ export function PackageForm({ initialData, packageId }: Props) {
     set("hotel_detalles", arr);
   };
 
+  const addAdicionalPrecio = () => set("adicionales_precio", [...form.adicionales_precio, { ...EMPTY_ADICIONAL_PRECIO }]);
+  const removeAdicionalPrecio = (i: number) => set("adicionales_precio", form.adicionales_precio.filter((_, idx) => idx !== i));
+  const setAdicionalPrecioField = (i: number, key: keyof AdicionalPrecio, v: string) => {
+    const arr = [...form.adicionales_precio];
+    arr[i] = { ...arr[i], [key]: v };
+    set("adicionales_precio", arr);
+  };
+
   const handleImageUpload = async (file: File) => {
     setUploadingImg(true);
     try {
@@ -243,10 +258,33 @@ export function PackageForm({ initialData, packageId }: Props) {
 
   const handleSubmit = async (esDraft: boolean) => {
     setError("");
-    if (!form.destino_id || !form.categoria_id || !form.precio_base) {
-      setError("Destino, período y precio son obligatorios.");
+    if (!form.destino_id || !form.categoria_id) {
+      setError("Destino y período son obligatorios.");
       return;
     }
+    const hotelesValidos = form.alojamiento_activo
+      ? form.hotel_detalles.filter((h) => h.hotel_id !== "")
+      : [];
+    if (form.alojamiento_activo && hotelesValidos.length === 0) {
+      setError("Debés seleccionar al menos un hotel.");
+      return;
+    }
+    if (!form.alojamiento_activo && !form.precio_base) {
+      setError("El precio del paquete es obligatorio cuando no hay alojamiento.");
+      return;
+    }
+
+    // precio_base = mínimo de hoteles (si hay) o precio manual
+    const preciosHoteles = hotelesValidos.map((h) => Number(h.precio)).filter((p) => p > 0);
+    const precioBase = form.alojamiento_activo && preciosHoteles.length > 0
+      ? Math.min(...preciosHoteles)
+      : Number(form.precio_base) || 0;
+
+    // precio_adicional = suma de todos los adicionales de precio
+    const precioAdicional = form.adicionales_precio
+      .filter((a) => a.valor)
+      .reduce((sum, a) => sum + (Number(a.valor) || 0), 0);
+
     setLoading(true);
     try {
       const body = {
@@ -257,26 +295,25 @@ export function PackageForm({ initialData, packageId }: Props) {
         fecha_regreso: form.tipo_salidas === "FECHA_ESPECIFICA" && form.fecha_regreso ? form.fecha_regreso : null,
         duracion_dias: Number(form.duracion_dias) || 0,
         duracion_noches: Number(form.duracion_noches) || 0,
-        precio_base: Number(form.precio_base),
-        precio_adicional: Number(form.precio_adicional) || 0,
+        precio_base: precioBase,
+        precio_adicional: precioAdicional,
         moneda: form.moneda,
         tipo_salidas: form.tipo_salidas,
         imagen_url: form.imagen_url || null,
         adicionales: form.adicionales.filter((a) => a.trim() !== ""),
+        adicionales_json: form.adicionales_precio.length > 0
+          ? { adicionales_precio: form.adicionales_precio.filter((a) => a.nombre || a.valor) }
+          : null,
         include_transfer: form.include_transfer,
         include_asistencia_medica: form.include_asistencia_medica,
         es_borrador: esDraft,
         estado: true,
-        hotel_detalles: form.alojamiento_activo
-          ? form.hotel_detalles
-              .filter((h) => h.hotel_id !== "")
-              .map((h) => ({
-                hotel_id: Number(h.hotel_id),
-                regimen: h.regimen || null,
-                cantidad_noches: Number(h.cantidad_noches) || null,
-                precio: h.precio ? Number(h.precio) : null,
-              }))
-          : [],
+        hotel_detalles: hotelesValidos.map((h) => ({
+          hotel_id: Number(h.hotel_id),
+          regimen: h.regimen || null,
+          cantidad_noches: Number(h.cantidad_noches) || null,
+          precio: h.precio ? Number(h.precio) : null,
+        })),
         transporte_ids: form.transporte_activo && form.transporte_id ? [Number(form.transporte_id)] : [],
         punto_ascenso_ids: form.punto_ascenso_ids,
         servicio_ids: [],
@@ -444,34 +481,32 @@ export function PackageForm({ initialData, packageId }: Props) {
           </div>
         </div>
 
-        {/* ── Precio ── */}
+        {/* ── Moneda (siempre visible) ── */}
         <Divider label="Precio" />
 
-        <div className="grid grid-cols-3 gap-5">
-          <div>
-            <Label>Moneda</Label>
-            <Select value={form.moneda} onChange={(v) => set("moneda", v)}>
-              <option value="ARS">ARS $</option>
-              <option value="USD">USD U$D</option>
-            </Select>
-          </div>
-          <div>
-            <Label>Precio base</Label>
-            <Input type="number" value={form.precio_base} onChange={(v) => set("precio_base", v)} placeholder="0" />
-          </div>
-          <div>
-            <Label>Precio adicional</Label>
-            <Input type="number" value={form.precio_adicional} onChange={(v) => set("precio_adicional", v)} placeholder="0" />
-          </div>
+        <div className="max-w-[180px]">
+          <Label>Moneda</Label>
+          <Select value={form.moneda} onChange={(v) => set("moneda", v)}>
+            <option value="ARS">ARS $</option>
+            <option value="USD">USD U$D</option>
+          </Select>
         </div>
 
-        {/* ── Adicionales al paquete ── */}
+        {/* Precio base: solo si NO hay alojamiento */}
+        {!form.alojamiento_activo && (
+          <div className="max-w-xs">
+            <Label>Precio base del paquete por persona</Label>
+            <Input type="number" value={form.precio_base} onChange={(v) => set("precio_base", v)} placeholder="0" />
+          </div>
+        )}
+
+        {/* ── Adicionales al paquete (descripción, no precio) ── */}
         <div>
-          <Label>Adicionales al paquete</Label>
+          <Label>Incluye / Adicionales informativos</Label>
           <div className="space-y-2.5 mt-1">
             {form.adicionales.map((item, i) => (
               <div key={i} className="flex gap-2">
-                <Input value={item} onChange={(v) => setAdicional(i, v)} placeholder="Ej: Sumar gastos de reserva" />
+                <Input value={item} onChange={(v) => setAdicional(i, v)} placeholder="Ej: Asistencia al viajero, seguro de equipaje…" />
                 <button
                   type="button"
                   onClick={() => removeAdicional(i)}
@@ -609,6 +644,61 @@ export function PackageForm({ initialData, packageId }: Props) {
             </button>
           </div>
         </SectionCard>
+
+        {/* ── Precios adicionales (gastos, suplementos, etc.) ── */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-sm font-bold text-gray-700">Precios adicionales</p>
+              <p className="text-xs text-gray-400 mt-0.5">Gastos de reserva, suplemento bus cama, etc. Se suman al precio principal.</p>
+            </div>
+          </div>
+          <div className="space-y-2.5">
+            {form.adicionales_precio.map((ap, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  value={ap.nombre}
+                  onChange={(v) => setAdicionalPrecioField(i, "nombre", v)}
+                  placeholder="Ej: Gastos de reserva"
+                  className="flex-1"
+                />
+                <Input
+                  type="number"
+                  value={ap.valor}
+                  onChange={(v) => setAdicionalPrecioField(i, "valor", v)}
+                  placeholder="0"
+                  className="w-36"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeAdicionalPrecio(i)}
+                  className="w-11 h-11 flex items-center justify-center rounded-xl border-2 border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 transition-colors flex-shrink-0"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addAdicionalPrecio}
+              className="flex items-center gap-2 text-sm font-bold text-[#1D5D8C] hover:text-[#164a70] transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Agregar precio adicional
+            </button>
+            {form.adicionales_precio.some((a) => a.valor) && (
+              <p className="text-sm font-bold text-gray-500 pt-1">
+                Total adicionales:{" "}
+                <span className="text-gray-800">
+                  {form.moneda === "USD" ? "U$D " : "$ "}
+                  {form.adicionales_precio
+                    .filter((a) => a.valor)
+                    .reduce((s, a) => s + (Number(a.valor) || 0), 0)
+                    .toLocaleString("es-AR")}
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* ── Incluye ── */}
         <Divider label="Incluye" />

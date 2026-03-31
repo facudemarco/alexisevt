@@ -37,6 +37,8 @@ export function PackageCard({ pkg }: { pkg: Package }) {
   const formatPrice = (price: number) =>
     moneda + new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(price) + ".-";
 
+  const hoteles = pkg.hotel_detalles?.filter((d) => d.hotel?.nombre) ?? [];
+
   const preciosHoteles = pkg.hotel_detalles
     ?.map((d) => d.precio)
     .filter((p): p is number => p != null && p > 0);
@@ -45,11 +47,10 @@ export function PackageCard({ pkg }: { pkg: Package }) {
     ? Math.min(...preciosHoteles)
     : pkg.precio_base;
 
-  const tieneMultiplesPrecios = preciosHoteles && preciosHoteles.length > 1 &&
-    new Set(preciosHoteles).size > 1;
+  // "Desde" aparece siempre que haya 2+ hoteles
+  const tieneMultiplesPrecios = hoteles.length > 1;
 
   const bgImage = pkg.imagen_url || "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800";
-  const hoteles = pkg.hotel_detalles?.filter((d) => d.hotel?.nombre) ?? [];
 
   return (
     <div className="group relative w-full rounded-2xl overflow-hidden shadow-lg h-[420px]">
