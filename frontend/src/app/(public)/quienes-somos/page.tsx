@@ -36,9 +36,9 @@ export default function QuienesSomosPage() {
         />
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <iframe
-            src="https://player.vimeo.com/video/1178921212?badge=0&autopause=0&player_id=0&app_id=58479&background=1&autoplay=1&loop=1&muted=1"
+            src="https://player.vimeo.com/video/1178921212?background=1&autoplay=1&loop=1&muted=1&autopause=0"
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[177.77vh] min-w-full min-h-full h-[100%] md:h-[56.25vw] opacity-100"
-            allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
+            allow="autoplay; fullscreen; picture-in-picture"
             referrerPolicy="strict-origin-when-cross-origin"
             title="login-bg-alexis"
             aria-hidden="true"
