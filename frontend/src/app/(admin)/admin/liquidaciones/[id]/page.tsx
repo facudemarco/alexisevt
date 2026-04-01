@@ -57,8 +57,8 @@ interface Liquidacion {
 const fmt = (n: number) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 
-// ── Pago form row (add new pago) ───────────────────────────────────────
-function AddPagoRow({
+// ── Add Pago Form (below pagos table) ─────────────────────────────────
+function AddPagoForm({
   liquidacionId,
   onAdded,
 }: {
@@ -92,45 +92,43 @@ function AddPagoRow({
   };
 
   return (
-    <tr className="bg-blue-50 border-t-2 border-[#1D5D8C]/20">
-      <td className="px-3 py-2 text-xs text-gray-500 font-medium">Nuevo</td>
-      <td className="px-3 py-2">
-        <input
-          type="date"
-          value={fecha}
-          onChange={(e) => setFecha(e.target.value)}
-          className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:border-[#1D5D8C]"
-        />
-      </td>
-      <td className="px-3 py-2" colSpan={2}>
-        <input
-          type="text"
-          placeholder="Descripción (opcional)"
-          value={desc}
-          onChange={(e) => setDesc(e.target.value)}
-          className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:border-[#1D5D8C]"
-        />
-      </td>
-      <td className="px-3 py-2">
-        <input
-          type="number"
-          placeholder="Monto"
-          value={monto}
-          onChange={(e) => setMonto(e.target.value)}
-          className="w-full text-right border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:border-[#1D5D8C]"
-        />
-        {error && <p className="text-red-500 text-xs mt-0.5">{error}</p>}
-      </td>
-      <td className="px-3 py-2">
+    <div className="print:hidden bg-blue-50 border-t-2 border-[#1D5D8C]/20 px-4 py-4 mb-4">
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-gray-500 font-medium w-12 shrink-0">Nuevo</span>
+        <div className="flex items-center gap-2 flex-1">
+          <input
+            type="date"
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+            className="w-40 shrink-0 border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1D5D8C]"
+          />
+          <input
+            type="text"
+            placeholder="Descripción (opcional)"
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            className="flex-1 min-w-0 border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1D5D8C]"
+          />
+        </div>
+        <div className="flex flex-col items-end gap-0.5 shrink-0">
+          <input
+            type="number"
+            placeholder="Monto"
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+            className="w-32 text-right border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1D5D8C] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          {error && <p className="text-red-500 text-[10px] w-32 text-right leading-tight mt-0.5">{error}</p>}
+        </div>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-1 bg-[#1D5D8C] text-white px-3 py-1 rounded text-xs font-semibold hover:bg-[#174d78] disabled:opacity-50 transition-colors"
+          className="shrink-0 flex items-center justify-center gap-1.5 bg-[#1D5D8C] text-white px-6 py-2 h-10 rounded text-sm font-semibold hover:bg-[#174d78] disabled:opacity-50 transition-colors"
         >
-          {saving ? "…" : <><Plus className="w-3 h-3" /> Agregar</>}
+          {saving ? "…" : <><Plus className="w-4 h-4" /> Agregar</>}
         </button>
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 }
 
@@ -376,9 +374,10 @@ export default function LiquidacionDetailPage() {
       </div>
 
       {/* Liquidación Document */}
-      <div id="print-root" ref={printRef} className="p-0 sm:p-10 max-w-4xl mx-auto print:p-0 print:max-w-none bg-[#f2f2f2] min-h-screen flex flex-col">
+      {/* Liquidación Document */}
+      <div id="print-root" ref={printRef} className="p-0 sm:p-10 max-w-4xl mx-auto print:p-0 print:max-w-none bg-[#f2f2f2] print:bg-white min-h-screen print:min-h-0 flex flex-col print:block print:h-auto print:overflow-hidden">
         
-        <div className="p-6 md:p-10 flex-1">
+        <div className="p-6 md:p-10 flex-1 print:p-4 print:pb-0">
           {/* ── Document Header ── */}
           <div className="flex items-start justify-between mb-8">
             {/* Title with slant effect */}
@@ -495,16 +494,15 @@ export default function LiquidacionDetailPage() {
                     </td>
                   </tr>
                 ))}
-                {/* Add pago row (hidden on print) */}
-                <AddPagoRow
-                  liquidacionId={liq.id}
-                  onAdded={(pago) => {
-                    setLiq((prev) => prev ? { ...prev, pagos: [...prev.pagos, pago] } : prev);
-                    load(); // refresh computed fields
-                  }}
-                />
               </tbody>
             </table>
+            <AddPagoForm
+              liquidacionId={liq.id}
+              onAdded={(pago) => {
+                setLiq((prev) => prev ? { ...prev, pagos: [...prev.pagos, pago] } : prev);
+                load();
+              }}
+            />
           </div>
 
           {/* Notas */}
@@ -516,33 +514,31 @@ export default function LiquidacionDetailPage() {
         </div>
 
         {/* ── Document Footer ── */}
-        <div className="mt-auto">
-          <div className="grid grid-cols-2 gap-10 px-10 pb-10">
+        <div className="mt-auto print:mt-4">
+          <div className="flex justify-between items-end px-10 pb-10 print:px-6 print:pb-6 print:gap-4">
             {/* Footer Logo Box */}
-            <div className="flex items-end">
-              <div className="bg-[#1D5D8C] p-4 relative w-48 h-28 flex items-center justify-center">
-                <Image src="/resources/logo.png" alt="Alexis EVT" width={80} height={80} className="object-contain" />
-              </div>
+            <div className="bg-[#1D5D8C] p-4 relative w-48 h-28 print:w-40 print:h-24 flex items-center justify-center shrink-0">
+              <Image src="/resources/logo.png" alt="Alexis EVT" width={70} height={70} className="object-contain" />
             </div>
-
+          
             {/* Totals Summary */}
-            <div className="space-y-1">
-              <div className="flex justify-end gap-10 text-lg">
+            <div className="space-y-1 flex-1 max-w-xs">
+              <div className="flex justify-between gap-10 text-lg print:text-base">
                 <span className="text-gray-700 font-medium">Subtotal :</span>
-                <span className="font-extrabold text-gray-900 w-32 text-right">{fmt(liq.subtotal).replace('$', '$ ')}.-</span>
+                <span className="font-extrabold text-gray-900 text-right">{fmt(liq.subtotal).replace('$', '$ ')}.-</span>
               </div>
-              <div className="flex justify-end gap-10 text-lg">
+              <div className="flex justify-between gap-10 text-lg print:text-base">
                 <span className="text-gray-700 font-medium">Comisión {liq.comision_porcentaje}%:</span>
-                <span className="font-extrabold text-gray-900 w-32 text-right">{fmt(liq.comision_monto).replace('$', '$ ')}.-</span>
+                <span className="font-extrabold text-gray-900 text-right">{fmt(liq.comision_monto).replace('$', '$ ')}.-</span>
               </div>
-              <div className="flex justify-end gap-10 text-lg">
+              <div className="flex justify-between gap-10 text-lg print:text-base">
                 <span className="text-gray-700 font-medium">Pagos</span>
-                <span className="font-extrabold text-gray-900 w-32 text-right">{fmt(liq.total_pagos).replace('$', '$ ')}.-</span>
+                <span className="font-extrabold text-gray-900 text-right">{fmt(liq.total_pagos).replace('$', '$ ')}.-</span>
               </div>
               <div className="border-t-2 border-gray-400 mt-2 pt-2">
-                <div className="flex justify-end gap-10 text-2xl">
+                <div className="flex justify-between gap-10 text-2xl print:text-xl">
                   <span className="font-black text-gray-900 uppercase">SALDO TOTAL</span>
-                  <span className="font-black text-gray-900 w-32 text-right">
+                  <span className="font-black text-gray-900 text-right">
                     {fmt(liq.saldo).replace('$', '$ ')}
                   </span>
                 </div>
@@ -569,16 +565,41 @@ export default function LiquidacionDetailPage() {
       {/* Print styles */}
       <style jsx global>{`
         @media print {
-          body * { visibility: hidden; }
+          html, body {
+            height: 100% !important;
+            overflow: hidden !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          body {
+            visibility: hidden;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           #print-root, #print-root * { visibility: visible; }
           .print\\:hidden { display: none !important; }
           [class*="print:hidden"] { display: none !important; }
           @page {
             margin: 0;
-            size: auto;
+            size: A4 portrait;
           }
-          body {
+          #print-root {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 210mm !important;
+            height: 297mm !important;
             background: white !important;
+            transform: scale(0.9) !important;
+            transform-origin: top center !important;
+          }
+          input::-webkit-outer-spin-button,
+          input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+          }
+          input[type=number] {
+            -moz-appearance: textfield;
           }
         }
       `}</style>
