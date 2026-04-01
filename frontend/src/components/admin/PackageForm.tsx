@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { fetchApi } from "@/lib/api";
 import { Plus, Minus, Loader2, ChevronDown, Bus, Hotel, ImagePlus, X } from "lucide-react";
@@ -137,6 +137,84 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
         checked ? "translate-x-6" : "translate-x-1"
       )} />
     </button>
+  );
+}
+
+function TimeInput({ value, onChange }: { value: string; onChange: (v: string) => void; }) {
+  const [localH, setLocalH] = useState("");
+  const [localM, setLocalM] = useState("");
+  const minRef = useRef<HTMLInputElement>(null);
+
+  // Sincronizar estado interno cuando el valor externo cambie (ej: carga inicial)
+  useEffect(() => {
+    if (value && value.includes(":")) {
+      const [hv, mv] = value.split(":");
+      setLocalH(hv === "00" && !value ? "" : hv); // manejar placeholders
+      setLocalM(mv === "00" && !value ? "" : mv);
+    } else {
+      setLocalH("");
+      setLocalM("");
+    }
+  }, [value]);
+
+  const handleH = (v: string) => {
+    let val = v.replace(/\D/g, "").slice(0, 2);
+    if (Number(val) > 23) val = "23";
+    setLocalH(val);
+    // Salto automático si ya hay 2 dígitos o si el primer dígito ya define la hora (3-9 => 03-09)
+    if (val.length === 2 || (val.length === 1 && Number(val) > 2)) {
+      minRef.current?.focus();
+    }
+  };
+
+  const handleM = (v: string) => {
+    let val = v.replace(/\D/g, "").slice(0, 2);
+    if (Number(val) > 59) val = "59";
+    setLocalM(val);
+  };
+
+  const handleBlur = (e: React.FocusEvent) => {
+    // Solo disparamos el cambio al padre cuando el foco sale REALMENTE del componente
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+
+    if (!localH && !localM) {
+      onChange("");
+    } else {
+      const hh = localH.padStart(2, "0");
+      const mm = localM.padStart(2, "0");
+      onChange(`${hh}:${mm}`);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2" onBlur={handleBlur}>
+      <div className="relative flex-1 group">
+        <input
+          type="text"
+          value={localH}
+          onChange={(e) => handleH(e.target.value)}
+          onFocus={(e) => e.target.select()}
+          placeholder="HH"
+          maxLength={2}
+          className="w-full h-11 px-3 text-center rounded-xl border-2 border-gray-200 bg-white text-base text-gray-800 font-bold focus:outline-none focus:border-[#1D5D8C] transition-colors"
+        />
+        <span className="absolute -top-2.5 left-3 px-1 bg-white text-[10px] font-black text-gray-400 uppercase tracking-tighter transition-colors group-focus-within:text-[#1D5D8C]">Hora</span>
+      </div>
+      <span className="text-xl font-black text-gray-300 mb-1">:</span>
+      <div className="relative flex-1 group">
+        <input
+          type="text"
+          ref={minRef}
+          value={localM}
+          onChange={(e) => handleM(e.target.value)}
+          onFocus={(e) => e.target.select()}
+          placeholder="MM"
+          maxLength={2}
+          className="w-full h-11 px-3 text-center rounded-xl border-2 border-gray-200 bg-white text-base text-gray-800 font-bold focus:outline-none focus:border-[#1D5D8C] transition-colors"
+        />
+        <span className="absolute -top-2.5 left-3 px-1 bg-white text-[10px] font-black text-gray-400 uppercase tracking-tighter transition-colors group-focus-within:text-[#1D5D8C]">Min</span>
+      </div>
+    </div>
   );
 }
 
@@ -326,6 +404,9 @@ export function PackageForm({ initialData, packageId }: Props) {
           cantidad_noches: Number(h.cantidad_noches) || null,
           precio: h.precio ? Number(h.precio) : null,
         })),
+        horario_salida: form.transporte_activo && form.horario_salida ? form.horario_salida : null,
+        horario_regreso: form.transporte_activo && form.horario_regreso ? form.horario_regreso : null,
+        transporte_tipo: form.transporte_activo ? form.transporte_tipo : null,
         transporte_ids: form.transporte_activo && form.transporte_id ? [Number(form.transporte_id)] : [],
         punto_ascenso_ids: form.punto_ascenso_ids,
         servicio_ids: [],
@@ -564,11 +645,11 @@ export function PackageForm({ initialData, packageId }: Props) {
           <div className="grid grid-cols-2 gap-5">
             <div>
               <Label>Horario aprox. de salida (24hs)</Label>
-              <Input type="time" value={form.horario_salida} onChange={(v) => set("horario_salida", v)} placeholder="HH:MM" />
+              <TimeInput value={form.horario_salida} onChange={(v) => set("horario_salida", v)} />
             </div>
             <div>
               <Label>Horario aprox. de regreso (24hs)</Label>
-              <Input type="time" value={form.horario_regreso} onChange={(v) => set("horario_regreso", v)} placeholder="HH:MM" />
+              <TimeInput value={form.horario_regreso} onChange={(v) => set("horario_regreso", v)} />
             </div>
           </div>
           <div>

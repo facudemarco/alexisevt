@@ -57,29 +57,9 @@ def get_categoria_by_slug(db: Session, slug: str):
     return db.query(Categoria).filter(Categoria.slug == slug).first()
 
 def create_paquete(db: Session, paquete: PaqueteCreate):
-    db_paquete = Paquete(
-        destino_id=paquete.destino_id,
-        categoria_id=paquete.categoria_id,
-        titulo_subtitulo=paquete.titulo_subtitulo,
-        fecha_salida=paquete.fecha_salida,
-        fecha_regreso=paquete.fecha_regreso,
-        duracion_dias=paquete.duracion_dias,
-        duracion_noches=paquete.duracion_noches,
-        precio_base=paquete.precio_base,
-        precio_adicional=paquete.precio_adicional,
-        moneda=paquete.moneda,
-        tipo_salidas=paquete.tipo_salidas,
-        imagen_url=paquete.imagen_url,
-        adicionales=paquete.adicionales,
-        sobre_el_destino=paquete.sobre_el_destino,
-        include_transfer=paquete.include_transfer,
-        include_asistencia_medica=paquete.include_asistencia_medica,
-        es_borrador=paquete.es_borrador,
-        estado=paquete.estado,
-        regimen=paquete.regimen,
-        gastos_reserva=paquete.gastos_reserva,
-        salidas_diarias=paquete.salidas_diarias,
-    )
+    # Extraemos los campos base del esquema, excluyendo las relaciones que manejaremos manualmente
+    paquete_data = paquete.model_dump(exclude={"hotel_detalles", "transporte_ids", "servicio_ids", "punto_ascenso_ids"})
+    db_paquete = Paquete(**paquete_data)
 
     # Hotel detalles (association object con régimen, noches y precio)
     for hd in paquete.hotel_detalles:

@@ -36,8 +36,8 @@ export default function EditPackagePage() {
           transporte_activo: Array.isArray(pkg.transportes) && pkg.transportes.length > 0,
           transporte_id: pkg.transportes?.[0]?.id ? String(pkg.transportes[0].id) : "",
           transporte_tipo: pkg.transporte_tipo ?? "",
-          horario_salida: pkg.horario_salida ?? "",
-          horario_regreso: pkg.horario_regreso ?? "",
+          horario_salida: pkg.horario_salida ? pkg.horario_salida.slice(0, 5) : "",
+          horario_regreso: pkg.horario_regreso ? pkg.horario_regreso.slice(0, 5) : "",
           punto_ascenso_ids: Array.isArray(pkg.puntos_ascenso) ? pkg.puntos_ascenso.map((p: any) => p.id) : [],
           alojamiento_activo: Array.isArray(pkg.hotel_detalles) && pkg.hotel_detalles.length > 0,
           hotel_detalles: Array.isArray(pkg.hotel_detalles) && pkg.hotel_detalles.length > 0

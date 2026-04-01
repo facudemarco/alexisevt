@@ -59,7 +59,12 @@ class Settings(BaseSettings):
     SERVE_STATIC_LOCALLY: bool = True
 
     # ── CORS ─────────────────────────────────────────────────────────────────
-    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:3011"]
+    ALLOWED_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3011",
+        "https://alexis.iwebtecnology.com"
+    ]
 
     # ── SMTP ─────────────────────────────────────────────────────────────────
     SMTP_HOST:     str  = ""

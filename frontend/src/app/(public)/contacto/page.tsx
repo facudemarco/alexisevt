@@ -20,7 +20,7 @@ export default function ContactoPage() {
     setStatus("idle");
 
     try {
-      const res = await fetch("/api/contact", {
+      const res = await fetch("/next-api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
