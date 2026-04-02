@@ -162,14 +162,14 @@ export default async function PackageDetailPage({
                       <Bus className="w-4 h-4 text-gray-400 flex-shrink-0" />
                       Empresa: <strong>{primerTransporte.nombre || "A confirmar"}</strong>
                     </p>
-                    {paquete.horario_salida && paquete.horario_salida !== "00:00" && (
+                    {paquete.horario_salida && (
                       <p className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                         Horario aproximado de ida:{" "}
                         <strong>{paquete.horario_salida} hs</strong>
                       </p>
                     )}
-                    {paquete.horario_regreso && paquete.horario_regreso !== "00:00" && (
+                    {paquete.horario_regreso && (
                       <p className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                         Horario aproximado de regreso:{" "}
@@ -210,17 +210,17 @@ export default async function PackageDetailPage({
                       <Plane className="w-4 h-4 text-gray-400 flex-shrink-0" />
                       Aerolínea: <strong>{paquete.aerolinea?.nombre || "A confirmar"}</strong>
                     </p>
-                    {paquete.aereo_horario_salida && paquete.aereo_horario_salida !== "00:00" && (
+                    {paquete.aereo_horario_salida && (
                       <p className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                         Rango aproximado de Horario aproximado de ida: <strong>
                           {paquete.aereo_horario_salida} 
-                          {paquete.aereo_horario_salida_hasta && paquete.aereo_horario_salida_hasta !== "00:00" ? ` / ${paquete.aereo_horario_salida_hasta}` : ""} 
+                          {paquete.aereo_horario_salida_hasta && paquete.aereo_horario_salida_hasta !== "" ? ` / ${paquete.aereo_horario_salida_hasta}` : ""} 
                           hs
                         </strong>
                       </p>
                     )}
-                    {paquete.aereo_horario_regreso && paquete.aereo_horario_regreso !== "00:00" && (
+                    {paquete.aereo_horario_regreso && (
                       <p className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                         Horario aproximado de regreso: <strong>{paquete.aereo_horario_regreso} hs</strong>
