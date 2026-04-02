@@ -40,3 +40,8 @@ _tmp_*.py
 _tmp_*.js
 output.txt
 _error.log
+
+CLAUDE.md
+install.sh
+.hive-mind/
+.claude/

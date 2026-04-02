@@ -85,7 +85,7 @@ function NuevaLiquidacionModal({
   >([]);
 
   useEffect(() => {
-    fetchApi("/bookings?limit=500")
+    fetchApi("/bookings/?limit=500")
       .then((data: ReservaParaSelector[]) => {
         // Only show approved bookings
         setReservas(data.filter((r) => r.estado_reserva === "Aprobada"));
