@@ -18,6 +18,7 @@ export default function EditPackagePage() {
           destino_id: String(pkg.destino_id ?? ""),
           categoria_id: String(pkg.categoria_id ?? ""),
           imagen_url: pkg.imagen_url ?? "",
+          imagen_posicion: pkg.imagen_posicion ?? "center",
           tipo_salidas: pkg.tipo_salidas ?? "FECHA_ESPECIFICA",
           fecha_salida: pkg.fecha_salida ?? "",
           fecha_regreso: pkg.fecha_regreso ?? "",

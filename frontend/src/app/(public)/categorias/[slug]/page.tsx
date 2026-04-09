@@ -27,6 +27,18 @@ export default async function CategoryPage({ params }: Params) {
     }
   }
 
+  // Agrupar paquetes por destino para mostrar subtítulos
+  const gruposPorDestino: Record<string, typeof paquetes> = paquetes.reduce(
+    (groups: Record<string, any[]>, pkg: any) => {
+      const dest = pkg.destino?.nombre ?? "Sin destino";
+      if (!groups[dest]) groups[dest] = [];
+      groups[dest].push(pkg);
+      return groups;
+    },
+    {}
+  );
+  const hayMultiplesDestinos = Object.keys(gruposPorDestino).length > 1;
+
   return (
     <div className="min-h-screen flex flex-col relative w-full">
       {/* Top Header Background Video (behind the fixed navbar) */}
@@ -71,10 +83,34 @@ export default async function CategoryPage({ params }: Params) {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 lg:gap-10 xl:gap-14">
-              {paquetes.map((pkg: any) => (
-                <PackageCard key={pkg.id} pkg={pkg} />
-              ))}
+            <div className="space-y-14">
+              {Object.entries(gruposPorDestino).map(([destino, pkgs]) => {
+                const isGroup = pkgs.length > 1;
+                return (
+                  <section key={destino}>
+                    {/* Encabezado de destino: siempre si hay múltiples destinos, o si el destino tiene más de 1 paquete */}
+                    {(hayMultiplesDestinos || isGroup) && (
+                      <div className="flex items-center gap-4 mb-6">
+                        <h2 className="text-2xl md:text-3xl font-black text-[#1D5D8C] uppercase tracking-wide whitespace-nowrap">
+                          {destino}
+                        </h2>
+                        <div className="flex-1 h-[2px] bg-[#1D5D8C]/20 rounded-full" />
+                        {isGroup && (
+                          <span className="text-sm font-semibold text-[#1D5D8C]/60 whitespace-nowrap">
+                            {pkgs.length} opciones
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 xl:gap-14">
+                      {pkgs.map((pkg: any) => (
+                        <PackageCard key={pkg.id} pkg={pkg} compact={isGroup} />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           )}
         </div>

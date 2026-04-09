@@ -62,6 +62,7 @@ export interface Paquete {
   moneda: string;
   tipo_salidas: "DIARIAS" | "FECHA_ESPECIFICA";
   imagen_url?: string;
+  imagen_posicion?: string;
   adicionales: string[];
   sobre_el_destino?: string;
   include_transfer: boolean;

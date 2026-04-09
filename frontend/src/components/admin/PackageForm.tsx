@@ -30,6 +30,7 @@ interface FormState {
   destino_id: string;
   categoria_id: string;
   imagen_url: string;
+  imagen_posicion: string;
   tipo_salidas: "DIARIAS" | "FECHA_ESPECIFICA";
   fecha_salida: string;
   fecha_regreso: string;
@@ -64,7 +65,7 @@ const EMPTY_HOTEL: HotelDetalle = { hotel_id: "", regimen: "", cantidad_noches: 
 const EMPTY_ADICIONAL_PRECIO: AdicionalPrecio = { nombre: "", valor: "" };
 
 const EMPTY: FormState = {
-  destino_id: "", categoria_id: "", imagen_url: "",
+  destino_id: "", categoria_id: "", imagen_url: "", imagen_posicion: "center",
   tipo_salidas: "FECHA_ESPECIFICA",
   fecha_salida: "", fecha_regreso: "",
   duracion_dias: "", duracion_noches: "",
@@ -409,6 +410,7 @@ export function PackageForm({ initialData, packageId }: Props) {
         moneda: form.moneda,
         tipo_salidas: form.tipo_salidas,
         imagen_url: form.imagen_url || null,
+        imagen_posicion: form.imagen_posicion || "center",
         adicionales: form.adicionales.filter((a) => a.trim() !== ""),
         adicionales_json: form.adicionales_precio.length > 0
           ? { adicionales_precio: form.adicionales_precio.filter((a) => a.nombre || a.valor) }
@@ -500,32 +502,63 @@ export function PackageForm({ initialData, packageId }: Props) {
         <div>
           <Label>Imagen del paquete</Label>
           {form.imagen_url ? (
-            <div className="relative w-full h-44 rounded-xl overflow-hidden border-2 border-gray-200 group">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={form.imagen_url}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                <label className="cursor-pointer flex items-center gap-2 bg-white text-gray-800 font-bold text-sm px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
-                  <ImagePlus className="w-4 h-4" />
-                  Cambiar
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }}
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={() => set("imagen_url", "")}
-                  className="flex items-center gap-2 bg-red-500 text-white font-bold text-sm px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                  Quitar
-                </button>
+            <div className="space-y-3">
+              <div className="relative w-full h-44 rounded-xl overflow-hidden border-2 border-gray-200 group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={form.imagen_url}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: form.imagen_posicion }}
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                  <label className="cursor-pointer flex items-center gap-2 bg-white text-gray-800 font-bold text-sm px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                    <ImagePlus className="w-4 h-4" />
+                    Cambiar
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => set("imagen_url", "")}
+                    className="flex items-center gap-2 bg-red-500 text-white font-bold text-sm px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                    Quitar
+                  </button>
+                </div>
+              </div>
+
+              {/* Focal point picker */}
+              <div className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Posición</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([
+                    ["top left",    "↖"], ["top",    "↑"], ["top right",    "↗"],
+                    ["left",        "←"], ["center", "·"], ["right",        "→"],
+                    ["bottom left", "↙"], ["bottom", "↓"], ["bottom right", "↘"],
+                  ] as [string, string][]).map(([pos, icon]) => (
+                    <button
+                      key={pos}
+                      type="button"
+                      onClick={() => set("imagen_posicion", pos)}
+                      title={pos}
+                      className={cn(
+                        "w-8 h-8 rounded-lg text-sm font-bold transition-colors",
+                        form.imagen_posicion === pos
+                          ? "bg-[#1D5D8C] text-white shadow"
+                          : "bg-white border border-gray-200 text-gray-500 hover:border-[#1D5D8C] hover:text-[#1D5D8C]"
+                      )}
+                    >
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-xs text-gray-400 italic">{form.imagen_posicion}</span>
               </div>
             </div>
           ) : (

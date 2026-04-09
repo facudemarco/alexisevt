@@ -64,6 +64,7 @@ class Paquete(Base):
     moneda = Column(String(10), nullable=True, default='ARS')
     tipo_salidas = Column(String(20), default="FECHA_ESPECIFICA")
     imagen_url = Column(String(500), nullable=True)
+    imagen_posicion = Column(String(50), nullable=True, default="center")
     regimen = Column(String(100), nullable=True)
     gastos_reserva = Column(DECIMAL(10, 2), default=0)
     salidas_diarias = Column(Boolean, default=False)

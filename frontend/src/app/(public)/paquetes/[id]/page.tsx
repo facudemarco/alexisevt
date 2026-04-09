@@ -67,7 +67,8 @@ export default async function PackageDetailPage({
   if (!paquete) notFound();
 
   const fechaSalida = formatFechaSalida(paquete);
-  const hotelesDetalle = paquete.hotel_detalles?.filter((d) => d.hotel) ?? [];
+  const hotelesDetalle = (paquete.hotel_detalles?.filter((d) => d.hotel) ?? [])
+    .sort((a, b) => (a.precio ?? 0) - (b.precio ?? 0));
   const primerTransporte = paquete.transportes?.[0];
 
   return (
@@ -100,7 +101,10 @@ export default async function PackageDetailPage({
             alt={paquete.destino?.nombre ?? "Imagen del paquete"}
             fill
             className="object-cover"
+            sizes="100vw"
+            quality={100}
             priority
+            style={{ objectPosition: paquete.imagen_posicion ?? "center" }}
           />
         </div>
       )}

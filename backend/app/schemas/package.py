@@ -38,6 +38,7 @@ class PaqueteBase(BaseModel):
     moneda: Optional[str] = "ARS"
     tipo_salidas: str = "FECHA_ESPECIFICA"
     imagen_url: Optional[str] = None
+    imagen_posicion: Optional[str] = "center"
     adicionales: List[str] = []
     sobre_el_destino: Optional[str] = None
     include_transfer: bool = True
@@ -86,6 +87,7 @@ class PaqueteUpdate(BaseModel):
     moneda: Optional[str] = None
     tipo_salidas: Optional[str] = None
     imagen_url: Optional[str] = None
+    imagen_posicion: Optional[str] = None
     adicionales: Optional[List[str]] = None
     sobre_el_destino: Optional[str] = None
     include_transfer: Optional[bool] = None
