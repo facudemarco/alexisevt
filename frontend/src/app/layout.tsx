@@ -13,14 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: {
-    default: "Alexis EVT — Viajes y Aventuras",
-    template: "%s | Alexis EVT",
-  },
+  title: "Alexis EVT — Viajes y Aventuras",
   description:
     "Descubrí los mejores paquetes de viaje y aventura con Alexis EVT. Miniturismo, destinos nacionales e internacionales. Reservas online simples y seguras.",
   metadataBase: new URL("https://alexis-evt.tur.ar"),
   openGraph: {
+    title: "Alexis EVT — Viajes y Aventuras",
     siteName: "Alexis EVT",
     locale: "es_AR",
     type: "website",
