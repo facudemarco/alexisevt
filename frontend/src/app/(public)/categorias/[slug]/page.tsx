@@ -3,16 +3,21 @@ import { fetchApi } from "@/lib/api";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Image from "next/image";
+import { CustomTripForm } from "@/components/packages/CustomTripForm";
 
 interface Params {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ subperiodo?: string }>;
 }
 
-export default async function CategoryPage({ params }: Params) {
+export default async function CategoryPage({ params, searchParams }: Params) {
   // Await params object as per next.js 15+ patterns (the current project is Next.js 16)
   const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const slug = resolvedParams.slug;
   const decodedSlug = decodeURIComponent(slug);
+  const selectedSubperiod = resolvedSearchParams?.subperiodo;
 
   // Derive title from slug (e.g. "miniturismo" -> "Miniturismo")
   const title = decodedSlug.replace(/-/g, " ");
@@ -38,6 +43,23 @@ export default async function CategoryPage({ params }: Params) {
     {}
   );
   const hayMultiplesDestinos = Object.keys(gruposPorDestino).length > 1;
+
+  const isMiniturismo = decodedSlug.toLowerCase() === "miniturismo";
+  const isArgentina = decodedSlug.toLowerCase() === "argentina";
+  const isElegiDondeViajar = decodedSlug.toLowerCase() === "elegi-donde-viajar";
+
+  // Para Argentina, agrupar por subperiodo (campo periodo)
+  const gruposPorPeriodo: Record<string, typeof paquetes> = isArgentina
+    ? paquetes.reduce(
+        (groups: Record<string, any[]>, pkg: any) => {
+          const per = pkg.periodo && pkg.periodo.trim() !== "" ? pkg.periodo : "Salidas Generales";
+          if (!groups[per]) groups[per] = [];
+          groups[per].push(pkg);
+          return groups;
+        },
+        {}
+      )
+    : {};
 
   return (
     <div className="min-h-screen flex flex-col relative w-full">
@@ -73,7 +95,9 @@ export default async function CategoryPage({ params }: Params) {
             {title}
           </h1>
 
-          {paquetes.length === 0 ? (
+          {isElegiDondeViajar ? (
+            <CustomTripForm />
+          ) : paquetes.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <h3 className="text-xl text-gray-500 font-medium mb-4">No hay salidas disponibles por el momento para esta categoría.</h3>
               <Link href="/">
@@ -82,6 +106,75 @@ export default async function CategoryPage({ params }: Params) {
                 </button>
               </Link>
             </div>
+          ) : isMiniturismo ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 xl:gap-14">
+              {paquetes.map((pkg: any) => (
+                <PackageCard key={pkg.id} pkg={pkg} compact={false} />
+              ))}
+            </div>
+          ) : isArgentina ? (
+            selectedSubperiod ? (
+              // Vista de un subperíodo seleccionado (mosaico de paquetes)
+              <div>
+                <div className="mb-8 flex justify-start">
+                  <Link
+                    href="/categorias/argentina"
+                    className="flex items-center gap-2 text-sm font-bold text-[#1D5D8C] hover:underline"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Ver todos los subperíodos de Argentina
+                  </Link>
+                </div>
+
+                <div className="mb-12 text-center">
+                  <p className="text-sm font-black text-gray-400 uppercase tracking-widest">Argentina</p>
+                  <h2 className="text-3xl md:text-5xl font-black text-[#1D5D8C] uppercase tracking-wider italic font-serif mt-2">
+                    {selectedSubperiod}
+                  </h2>
+                </div>
+
+                {!(gruposPorPeriodo[selectedSubperiod]?.length > 0) ? (
+                  <div className="text-center py-10 text-gray-500 font-medium">
+                    No hay salidas disponibles para este subperíodo.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 xl:gap-14">
+                    {gruposPorPeriodo[selectedSubperiod].map((pkg: any) => (
+                      <PackageCard key={pkg.id} pkg={pkg} compact={false} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Vista de selección de subperíodos (una card por subperíodo)
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {Object.entries(gruposPorPeriodo).map(([periodo, pkgs]) => {
+                  const subperiodBg = pkgs[0]?.imagen_url || "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800";
+                  return (
+                    <Link
+                      key={periodo}
+                      href={`/categorias/argentina?subperiodo=${encodeURIComponent(periodo)}`}
+                      className="group relative w-full h-[300px] rounded-2xl overflow-hidden shadow-lg block transition-all"
+                    >
+                      <Image
+                        src={subperiodBg}
+                        alt={periodo}
+                        fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      />
+                      <div className="absolute inset-0 bg-black/50 transition-colors group-hover:bg-black/40" />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
+                        <h2 className="text-3xl font-bold tracking-wide drop-shadow uppercase">{periodo}</h2>
+                        <div className="w-12 h-[2px] bg-white/45 mt-3" />
+                        <p className="text-sm font-semibold text-white/80 mt-2">
+                          {pkgs.length} {pkgs.length === 1 ? "salida disponible" : "salidas disponibles"}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )
           ) : (
             <div className="space-y-14">
               {Object.entries(gruposPorDestino).map(([destino, pkgs]) => {

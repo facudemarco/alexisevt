@@ -14,6 +14,7 @@ interface Paquete {
   hotel_detalles?: { hotel?: { nombre: string } }[];
   precio_base: number;
   moneda: string;
+  periodo?: string;
 }
 
 function formatFecha(p: Paquete) {
@@ -32,6 +33,7 @@ export default function PackagesAdminPage() {
   const [paquetes, setPaquetes] = useState<Paquete[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroDestino, setFiltroDestino] = useState("");
+  const [filtroSubperiodo, setFiltroSubperiodo] = useState("");
   const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
   const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
 
@@ -53,9 +55,15 @@ export default function PackagesAdminPage() {
     return Array.from(new Set(nombres));
   }, [paquetes]);
 
+  const subperiodos = useMemo(() => {
+    const nombres = paquetes.map((p) => p.periodo).filter(Boolean) as string[];
+    return Array.from(new Set(nombres));
+  }, [paquetes]);
+
   const filtered = useMemo(() => {
     let res = paquetes.filter((p) => {
       if (filtroDestino && p.destino?.nombre !== filtroDestino) return false;
+      if (filtroSubperiodo && p.periodo !== filtroSubperiodo) return false;
       if (filtroFechaDesde && p.fecha_salida && p.fecha_salida < filtroFechaDesde) return false;
       if (filtroFechaHasta && p.fecha_salida && p.fecha_salida > filtroFechaHasta) return false;
       return true;
@@ -72,7 +80,7 @@ export default function PackagesAdminPage() {
     }
 
     return res;
-  }, [paquetes, filtroDestino, filtroFechaDesde, filtroFechaHasta, sortBy, sortOrder]);
+  }, [paquetes, filtroDestino, filtroSubperiodo, filtroFechaDesde, filtroFechaHasta, sortBy, sortOrder]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("¿Eliminar este paquete?")) return;
@@ -113,29 +121,39 @@ export default function PackagesAdminPage() {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha de salida</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Subperíodo</label>
+          <select
+            value={filtroSubperiodo}
+            onChange={(e) => setFiltroSubperiodo(e.target.value)}
+            className="h-9 px-3 pr-8 rounded-lg border border-gray-300 text-sm text-gray-700 bg-white appearance-none focus:outline-none focus:border-[#1D5D8C]"
+          >
+            <option value="">Todos los subperíodos</option>
+            {subperiodos.map((sp) => <option key={sp} value={sp}>{sp}</option>)}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha de salida (Desde)</label>
           <input
             type="date"
             value={filtroFechaDesde}
             onChange={(e) => setFiltroFechaDesde(e.target.value)}
-            placeholder="Todas las fechas"
             className="h-9 px-3 rounded-lg border border-gray-300 text-sm text-gray-700 bg-white focus:outline-none focus:border-[#1D5D8C]"
           />
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha de salida</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha de salida (Hasta)</label>
           <input
             type="date"
             value={filtroFechaHasta}
             onChange={(e) => setFiltroFechaHasta(e.target.value)}
-            placeholder="Todas las fechas"
             className="h-9 px-3 rounded-lg border border-gray-300 text-sm text-gray-700 bg-white focus:outline-none focus:border-[#1D5D8C]"
           />
         </div>
 
         <button
-          onClick={() => { setFiltroDestino(""); setFiltroFechaDesde(""); setFiltroFechaHasta(""); }}
+          onClick={() => { setFiltroDestino(""); setFiltroSubperiodo(""); setFiltroFechaDesde(""); setFiltroFechaHasta(""); }}
           className="h-9 px-3 flex items-center gap-1 text-gray-500 hover:text-[#1D5D8C] transition-colors"
           title="Limpiar filtros"
         >
@@ -149,6 +167,7 @@ export default function PackagesAdminPage() {
           <thead className="bg-[#1D5D8C] text-white">
             <tr>
               <th className="px-5 py-4 text-left font-bold text-base">Destino</th>
+              <th className="px-5 py-4 text-left font-bold text-base">Subperíodo</th>
               <th
                 className="px-5 py-4 text-left font-bold text-base cursor-pointer hover:bg-white/10 transition-colors"
                 onClick={() => {
@@ -178,18 +197,21 @@ export default function PackagesAdminPage() {
           <tbody className="divide-y divide-gray-100">
             {loading && (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-gray-400 text-base">Cargando...</td>
+                <td colSpan={7} className="py-12 text-center text-gray-400 text-base">Cargando...</td>
               </tr>
             )}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-gray-400 text-base">No hay paquetes.</td>
+                <td colSpan={7} className="py-12 text-center text-gray-400 text-base">No hay paquetes.</td>
               </tr>
             )}
             {filtered.map((p) => (
               <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-5 py-4 font-semibold text-gray-800 text-base">
                   {p.destino?.nombre ?? "—"}
+                </td>
+                <td className="px-5 py-4 text-gray-600 text-base">
+                  {p.periodo ?? "—"}
                 </td>
                 <td className="px-5 py-4 text-gray-600 text-base">{formatFecha(p)}</td>
                 <td className="px-5 py-4 text-gray-600 text-base">

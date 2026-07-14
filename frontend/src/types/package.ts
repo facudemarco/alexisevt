@@ -69,6 +69,7 @@ export interface Paquete {
   include_asistencia_medica: boolean;
   es_borrador: boolean;
   estado: boolean;
+  periodo?: string | null;
   horario_salida?: string | null;
   horario_regreso?: string | null;
   // Aéreo

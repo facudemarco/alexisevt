@@ -22,6 +22,7 @@ interface Package {
   hotel_detalles: HotelDetalle[];
   tipo_salidas?: string;
   moneda?: string;
+  periodo?: string;
 }
 
 export function PackageCard({ pkg, compact = false }: { pkg: Package; compact?: boolean }) {

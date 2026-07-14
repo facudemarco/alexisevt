@@ -59,6 +59,7 @@ interface FormState {
   aereo_horario_salida_hasta: string;
   aereo_horario_regreso: string;
   aereo_punto_ascenso_ids: number[];
+  periodo: string;
 }
 
 const EMPTY_HOTEL: HotelDetalle = { hotel_id: "", regimen: "", cantidad_noches: "", precio: "" };
@@ -80,6 +81,7 @@ const EMPTY: FormState = {
   include_transfer: false, include_asistencia_medica: false,
   aereo_activo: false, aereo_aerolinea_id: "", aereo_tipo_servicio: "",
   aereo_horario_salida: "", aereo_horario_salida_hasta: "", aereo_horario_regreso: "", aereo_punto_ascenso_ids: [],
+  periodo: "",
 };
 
 // ── Helpers UI ─────────────────────────────────────────────────────────────
@@ -550,6 +552,7 @@ export function PackageForm({ initialData, packageId }: Props) {
         include_asistencia_medica: form.include_asistencia_medica,
         es_borrador: esDraft,
         estado: true,
+        periodo: form.periodo || null,
         hotel_detalles: hotelesValidos.map((h) => ({
           hotel_id: Number(h.hotel_id),
           regimen: h.regimen || null,
@@ -624,9 +627,15 @@ export function PackageForm({ initialData, packageId }: Props) {
           </div>
         </div>
 
-        <div>
-          <Label>Subtítulo</Label>
-          <Input value={form.titulo_subtitulo} onChange={(v) => set("titulo_subtitulo", v)} placeholder="Ej: Con Termas Marinas" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <Label>Subtítulo</Label>
+            <Input value={form.titulo_subtitulo} onChange={(v) => set("titulo_subtitulo", v)} placeholder="Ej: Con Termas Marinas" />
+          </div>
+          <div>
+            <Label>Subperíodo (Opcional)</Label>
+            <Input value={form.periodo} onChange={(v) => set("periodo", v)} placeholder="Ej: Vacaciones de invierno, Temporada baja (Solo Argentina)" />
+          </div>
         </div>
 
         {/* Imagen */}

@@ -18,11 +18,6 @@ const categories = [
     image: "/resources/brasil.png",
   },
   {
-    title: "Otros Internacionales",
-    slug: "otros-internacionales",
-    image: "/resources/internacionales.png",
-  },
-  {
     title: "Elegí dónde viajar",
     slug: "elegi-donde-viajar",
     image: "/resources/Individuales.svg",
