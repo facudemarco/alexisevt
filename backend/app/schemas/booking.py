@@ -1,10 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime, date
 from app.models.booking import ReservaStatus
 from app.schemas.package import Paquete
 from app.schemas.user import User
-from app.schemas.config import Hotel
+from app.schemas.config import Hotel, PuntoAscenso
 
 
 class PasajeroBase(BaseModel):
@@ -23,9 +23,9 @@ class PasajeroCreate(PasajeroBase):
 class Pasajero(PasajeroBase):
     id: int
     reserva_id: int
+    punto_ascenso: Optional[PuntoAscenso] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ReservaBase(BaseModel):
@@ -38,6 +38,10 @@ class ReservaBase(BaseModel):
     pasajeros_menores: int = 0
     precio_total: float
     fecha_salida: Optional[date] = None
+    fecha_regreso: Optional[date] = None
+    duracion_dias: Optional[int] = None
+    duracion_noches: Optional[int] = None
+    es_bloqueo: Optional[bool] = False
 
 
 class ReservaCreate(ReservaBase):
@@ -49,6 +53,7 @@ class ReservaUpdate(BaseModel):
     estado_reserva: ReservaStatus
     motivo_rechazo: Optional[str] = None
     fecha_salida: Optional[date] = None
+    fecha_regreso: Optional[date] = None
 
 
 class ReservaFullUpdate(BaseModel):
@@ -62,6 +67,10 @@ class ReservaFullUpdate(BaseModel):
     pasajeros_menores: Optional[int] = None
     precio_total: Optional[float] = None
     fecha_salida: Optional[date] = None
+    fecha_regreso: Optional[date] = None
+    duracion_dias: Optional[int] = None
+    duracion_noches: Optional[int] = None
+    es_bloqueo: Optional[bool] = None
     pasajeros: Optional[List[PasajeroCreate]] = None
 
 
@@ -72,8 +81,7 @@ class ReservaInDBBase(ReservaBase):
     motivo_rechazo: Optional[str] = None
     fecha_creacion: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Reserva(ReservaInDBBase):

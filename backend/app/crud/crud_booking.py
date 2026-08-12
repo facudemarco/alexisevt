@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import asc
 from typing import Optional
 from app.models.booking import Reserva, Pasajero, ReservaStatus
@@ -6,13 +6,19 @@ from app.schemas.booking import ReservaCreate, ReservaFullUpdate
 
 
 def get_reserva(db: Session, reserva_id: int):
-    return db.query(Reserva).filter(Reserva.id == reserva_id).first()
+    return (
+        db.query(Reserva)
+        .options(joinedload(Reserva.pasajeros).joinedload(Pasajero.punto_ascenso))
+        .filter(Reserva.id == reserva_id)
+        .first()
+    )
 
 
 def get_reservas_by_vendedor(db: Session, vendedor_id: int, skip: int = 0, limit: int = 100):
     from app.models.package import Paquete
     return (
         db.query(Reserva)
+        .options(joinedload(Reserva.pasajeros).joinedload(Pasajero.punto_ascenso))
         .join(Paquete, Reserva.paquete_id == Paquete.id)
         .filter(Reserva.vendedor_id == vendedor_id)
         .order_by(asc(Paquete.fecha_salida))
@@ -31,7 +37,11 @@ def get_todas_reservas(
 ):
     from app.models.package import Paquete
 
-    q = db.query(Reserva).join(Paquete, Reserva.paquete_id == Paquete.id)
+    q = (
+        db.query(Reserva)
+        .options(joinedload(Reserva.pasajeros).joinedload(Pasajero.punto_ascenso))
+        .join(Paquete, Reserva.paquete_id == Paquete.id)
+    )
 
     if estado:
         q = q.filter(Reserva.estado_reserva == estado)
@@ -56,25 +66,29 @@ def create_reserva(db: Session, reserva: ReservaCreate, vendedor_id: int, auto_a
         precio_total=reserva.precio_total,
         estado_reserva=estado,
         fecha_salida=reserva.fecha_salida,
+        fecha_regreso=reserva.fecha_regreso,
+        duracion_dias=reserva.duracion_dias,
+        duracion_noches=reserva.duracion_noches,
+        es_bloqueo=bool(reserva.es_bloqueo),
     )
     db.add(db_reserva)
     db.flush()
 
-    for p in reserva.pasajeros:
-        db_pasajero = Pasajero(
-            reserva_id=db_reserva.id,
-            nombre=p.nombre,
-            apellido=p.apellido,
-            dni=p.dni,
-            fecha_nacimiento=p.fecha_nacimiento,
-            telefono=p.telefono,
-            punto_ascenso_id=p.punto_ascenso_id,
-        )
-        db.add(db_pasajero)
+    if reserva.pasajeros:
+        for p in reserva.pasajeros:
+            db_pasajero = Pasajero(
+                reserva_id=db_reserva.id,
+                nombre=p.nombre,
+                apellido=p.apellido,
+                dni=p.dni,
+                fecha_nacimiento=p.fecha_nacimiento,
+                telefono=p.telefono,
+                punto_ascenso_id=p.punto_ascenso_id,
+            )
+            db.add(db_pasajero)
 
     db.commit()
-    db.refresh(db_reserva)
-    return db_reserva
+    return get_reserva(db, db_reserva.id)
 
 
 def update_reserva_estado(db: Session, reserva_id: int, nuevo_estado: str, motivo: Optional[str] = None):
@@ -113,6 +127,14 @@ def update_reserva_full(db: Session, reserva_id: int, data: ReservaFullUpdate):
         reserva.precio_total = data.precio_total
     if data.fecha_salida is not None:
         reserva.fecha_salida = data.fecha_salida
+    if data.fecha_regreso is not None:
+        reserva.fecha_regreso = data.fecha_regreso
+    if data.duracion_dias is not None:
+        reserva.duracion_dias = data.duracion_dias
+    if data.duracion_noches is not None:
+        reserva.duracion_noches = data.duracion_noches
+    if data.es_bloqueo is not None:
+        reserva.es_bloqueo = data.es_bloqueo
 
     if data.pasajeros is not None:
         # Replace all passengers
@@ -132,5 +154,4 @@ def update_reserva_full(db: Session, reserva_id: int, data: ReservaFullUpdate):
             db.add(db_pasajero)
 
     db.commit()
-    db.refresh(reserva)
-    return reserva
+    return get_reserva(db, reserva.id)

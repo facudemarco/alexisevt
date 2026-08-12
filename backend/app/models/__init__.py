@@ -6,3 +6,4 @@ from app.models.booking import Reserva
 from app.models.board import BoardItem
 from app.models.notification import Notificacion
 from app.models.liquidacion import Liquidacion, LiquidacionItem, Pago
+from app.models.voucher import Voucher

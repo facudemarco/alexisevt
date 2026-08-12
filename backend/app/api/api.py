@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.routers import auth, users, config, packages, bookings, uploads, notifications, board, liquidaciones
+from app.api.routers import auth, users, config, packages, bookings, uploads, notifications, board, liquidaciones, vouchers
 
 api_router = APIRouter()
 
@@ -12,3 +12,4 @@ api_router.include_router(uploads.router, prefix="/uploads", tags=["Uploads"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["Notificaciones"])
 api_router.include_router(board.router, prefix="/cartelera", tags=["Cartelera"])
 api_router.include_router(liquidaciones.router, prefix="/liquidaciones", tags=["Liquidaciones"])
+api_router.include_router(vouchers.router, prefix="/vouchers", tags=["Vouchers"])
