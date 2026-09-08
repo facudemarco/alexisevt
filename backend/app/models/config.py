@@ -56,3 +56,10 @@ class Aerolinea(Base):
     nombre = Column(String(255), nullable=False)
 
 
+class SiteConfig(Base):
+    __tablename__ = "site_config"
+    id = Column(Integer, primary_key=True, index=True)
+    clave = Column(String(100), unique=True, index=True, nullable=False)
+    valor = Column(Text, nullable=True)
+
+

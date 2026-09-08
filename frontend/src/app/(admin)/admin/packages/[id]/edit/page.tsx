@@ -52,6 +52,7 @@ export default function EditPackagePage() {
           include_transfer: pkg.include_transfer ?? false,
           include_asistencia_medica: pkg.include_asistencia_medica ?? false,
           periodo: pkg.periodo ?? "",
+          completo: pkg.completo ?? false,
           // Aéreo
           aereo_activo: pkg.aereo_incluido ?? false,
           aereo_aerolinea_id: pkg.aereo_aerolinea_id ? String(pkg.aereo_aerolinea_id) : "",

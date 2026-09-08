@@ -2,7 +2,22 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { fetchApi } from "@/lib/api";
-import { Pencil, Trash2, Plus, ImagePlus, X, Loader2, ListFilter, ChevronDown } from "lucide-react";
+import { VideoBannerTab } from "@/components/admin/VideoBannerTab";
+import {
+  Pencil,
+  Trash2,
+  Plus,
+  ImagePlus,
+  X,
+  Loader2,
+  ListFilter,
+  ChevronDown,
+  Video,
+  Upload,
+  HelpCircle,
+  Info,
+  Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
@@ -28,7 +43,8 @@ interface Hotel {
   imagenes: string[];
 }
 
-type Tab = "hoteles" | "usuarios" | "destinos" | "transporte" | "lugares" | "aerolineas";
+type Tab = "hoteles" | "periodos" | "destinos" | "transporte" | "aerolineas" | "lugares" | "banner";
+
 
 // ── Helpers UI ─────────────────────────────────────────────────────────────
 
@@ -1447,24 +1463,449 @@ function AerolineasTab({ addTrigger }: { addTrigger: number }) {
   );
 }
 
+// ── Tipos e interfaces para Períodos (Categorías) ──────────────────────────
+
+interface CategoriaItem {
+  id: number;
+  nombre: string;
+  slug?: string;
+  imagen_url?: string;
+}
+
+// ── Modal Informativo de Medidas de Imagen (Períodos) ──────────────────────
+
+function MedidasImagenModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-sky-50/50">
+          <div className="flex items-center gap-2.5 text-[#1D5D8C]">
+            <Info className="w-6 h-6 text-[#1D5D8C]" />
+            <h3 className="text-xl font-black text-gray-900">Medidas Sugeridas de Imagen</h3>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4 text-gray-700 text-sm">
+          <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4 space-y-2">
+            <p className="font-bold text-[#1D5D8C] text-base flex items-center gap-2">
+              <Sparkles className="w-4 h-4" /> Tarjetas de la Página Principal (Home)
+            </p>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              Las fotos de los períodos se muestran en tarjetas verticales estilo mini-cartel, con un máximo de cuatro por fila en la sección &quot;Todas nuestras opciones&quot;.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/50">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Proporción</span>
+              <span className="text-base font-black text-gray-900">3:4</span>
+              <span className="text-xs text-gray-500 block mt-0.5">Vertical / Retrato</span>
+            </div>
+            <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/50">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Resolución sugerida</span>
+              <span className="text-base font-black text-gray-900">1200 × 1600 px</span>
+              <span className="text-xs text-gray-500 block mt-0.5">Mínimo: 600 × 800 px</span>
+            </div>
+            <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/50">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Formatos</span>
+              <span className="text-base font-black text-gray-900">JPG, PNG, WebP</span>
+              <span className="text-xs text-gray-500 block mt-0.5">o SVG vectorial</span>
+            </div>
+            <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/50">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Peso recomendado</span>
+              <span className="text-base font-black text-gray-900">&lt; 2 MB</span>
+              <span className="text-xs text-gray-500 block mt-0.5">Para carga rápida móvil</span>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900 leading-relaxed">
+            <strong>Nota informativa no restrictiva:</strong> Podés subir cualquier imagen según tu preferencia. Elegí una foto vertical con el motivo principal centrado. Las imágenes horizontales se recortarán por los costados para llenar la tarjeta sin deformarse.
+          </div>
+        </div>
+
+        <div className="flex justify-end px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 rounded-xl bg-[#1D5D8C] text-white font-bold text-sm hover:bg-[#164a70] transition-colors"
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Modal Agregar / Editar Período ─────────────────────────────────────────
+
+function PeriodoModal({
+  periodo,
+  onSave,
+  onClose,
+}: {
+  periodo: CategoriaItem | null;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  const [nombre, setNombre] = useState(periodo?.nombre ?? "");
+  const [slug, setSlug] = useState(periodo?.slug ?? "");
+  const [imagenUrl, setImagenUrl] = useState(periodo?.imagen_url ?? "");
+  const [saving, setSaving] = useState(false);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const [error, setError] = useState("");
+  const [showSpecs, setShowSpecs] = useState(false);
+
+  const handleNombreChange = (val: string) => {
+    setNombre(val);
+    if (!periodo) {
+      setSlug(
+        val
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+      );
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImg(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const data = await fetchApi("/uploads/image", { method: "POST", body: fd });
+      setImagenUrl(data.url);
+    } catch (err: any) {
+      setError(err.message || "Error al subir la imagen.");
+    } finally {
+      setUploadingImg(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!nombre.trim()) {
+      setError("El nombre es obligatorio.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const finalSlug = slug.trim() || nombre.toLowerCase().replace(/\s+/g, "-");
+      const body = {
+        nombre: nombre.trim(),
+        slug: finalSlug,
+        imagen_url: imagenUrl.trim() || null,
+      };
+
+      if (periodo) {
+        await fetchApi(`/config/categorias/${periodo.id}`, {
+          method: "PUT",
+          body: JSON.stringify(body),
+        });
+      } else {
+        await fetchApi("/config/categorias/", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+      }
+      onSave();
+    } catch (err: any) {
+      setError(err.message || "Error al guardar el período.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputClass =
+    "w-full h-11 px-4 rounded-xl border-2 border-gray-200 bg-white text-base text-gray-800 font-medium placeholder:text-gray-400 focus:outline-none focus:border-[#1D5D8C] transition-colors";
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+            <h2 className="text-2xl font-black text-gray-900">
+              {periodo ? "Editar Período (Home)" : "Agregar Período (Home)"}
+            </h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="px-6 py-5 space-y-4">
+            <div>
+              <Label>Nombre del Período / Opción</Label>
+              <input
+                className={inputClass}
+                value={nombre}
+                onChange={(e) => handleNombreChange(e.target.value)}
+                placeholder="Ej: Miniturismo, Argentina, Brasil..."
+              />
+            </div>
+
+            <div>
+              <Label>Slug de URL (/categorias/...)</Label>
+              <input
+                className={inputClass}
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder="Ej: miniturismo"
+              />
+              <span className="text-xs text-gray-400 mt-1 block">
+                Identificador de la página de paquetes correspondiente.
+              </span>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <Label>Imagen de la tarjeta</Label>
+                <button
+                  type="button"
+                  onClick={() => setShowSpecs(true)}
+                  className="text-xs font-bold text-[#1D5D8C] hover:underline flex items-center gap-1"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" /> Medidas recomendadas
+                </button>
+              </div>
+
+              {/* Selector / Subir */}
+              <div className="flex items-center gap-3 mb-2">
+                <label className="cursor-pointer flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-[#1D5D8C]/40 hover:border-[#1D5D8C] bg-sky-50/50 text-[#1D5D8C] text-sm font-bold transition-colors">
+                  {uploadingImg ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  <span>{uploadingImg ? "Subiendo..." : "Subir nueva foto"}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={uploadingImg}
+                  />
+                </label>
+                <span className="text-xs text-gray-400">o ingresá la ruta/URL:</span>
+              </div>
+
+              <input
+                className={inputClass}
+                value={imagenUrl}
+                onChange={(e) => setImagenUrl(e.target.value)}
+                placeholder="https://... o /resources/miniturismo.png"
+              />
+
+              {imagenUrl && (
+                <div className="mt-3 relative w-48 aspect-[3/4] rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
+                  <img
+                    src={imagenUrl}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/resources/miniturismo.png";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setImagenUrl("")}
+                    className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 font-medium">
+                {error}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 font-bold text-sm hover:border-gray-300 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || uploadingImg}
+              className="px-5 py-2.5 rounded-xl bg-[#1D5D8C] text-white font-bold text-sm hover:bg-[#164a70] transition-colors disabled:opacity-60 flex items-center gap-2"
+            >
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {periodo ? "Guardar cambios" : "Agregar Período"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {showSpecs && <MedidasImagenModal onClose={() => setShowSpecs(false)} />}
+    </>
+  );
+}
+
+// ── Tab Períodos (Home) ────────────────────────────────────────────────────
+
+function PeriodosTab({ addTrigger }: { addTrigger: number }) {
+  const [periodos, setPeriodos] = useState<CategoriaItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editPeriodo, setEditPeriodo] = useState<CategoriaItem | null | undefined>(undefined);
+  const [showSpecs, setShowSpecs] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    fetchApi("/config/categorias/")
+      .then((data) => setPeriodos(data || []))
+      .catch(() => setPeriodos([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (addTrigger > 0) setEditPeriodo(null);
+  }, [addTrigger]);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("¿Eliminar este período? Si tiene paquetes turísticos asociados, deberás desasignarlos primero.")) return;
+    try {
+      await fetchApi(`/config/categorias/${id}`, { method: "DELETE" });
+      load();
+    } catch (e: any) {
+      alert(e.message || "Error al eliminar el período.");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1D5D8C]" />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <p className="text-sm text-gray-500 font-medium">
+          Estos períodos corresponden a las tarjetas visibles en la portada principal bajo la sección &quot;Todas nuestras opciones&quot;.
+        </p>
+        <button
+          onClick={() => setShowSpecs(true)}
+          className="text-xs font-bold text-[#1D5D8C] hover:underline flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#1D5D8C]/20 bg-sky-50/60 shrink-0"
+        >
+          <HelpCircle className="w-4 h-4" /> Medidas recomendadas de imagen
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+        <table className="w-full text-left">
+          <thead className="bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+            <tr>
+              <th className="px-5 py-3 w-24">Imagen</th>
+              <th className="px-5 py-3">Nombre</th>
+              <th className="px-5 py-3">Slug (Ruta Web)</th>
+              <th className="px-5 py-3 text-center w-28">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {periodos.map((p) => (
+              <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-5 py-3">
+                  <div className="w-16 h-11 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 relative">
+                    <img
+                      src={p.imagen_url || "/resources/miniturismo.png"}
+                      alt={p.nombre}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/resources/miniturismo.png";
+                      }}
+                    />
+                  </div>
+                </td>
+                <td className="px-5 py-3 font-bold text-gray-900 text-base">{p.nombre}</td>
+                <td className="px-5 py-3 text-sm text-gray-500 font-mono">/categorias/{p.slug || "-"}</td>
+                <td className="px-5 py-3">
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      onClick={() => setEditPeriodo(p)}
+                      className="text-gray-400 hover:text-[#1D5D8C] transition-colors"
+                      aria-label="Editar"
+                    >
+                      <Pencil className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(p.id)}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                      aria-label="Eliminar"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {periodos.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-5 py-8 text-center text-gray-400 text-sm">
+                  No hay períodos registrados. Hacé clic en &quot;Agregar Período&quot; para crear el primero.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {editPeriodo !== undefined && (
+        <PeriodoModal
+          periodo={editPeriodo}
+          onSave={() => {
+            setEditPeriodo(undefined);
+            load();
+          }}
+          onClose={() => setEditPeriodo(undefined)}
+        />
+      )}
+
+      {showSpecs && <MedidasImagenModal onClose={() => setShowSpecs(false)} />}
+    </>
+  );
+}
+
 // ── Página principal ───────────────────────────────────────────────────────
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "hoteles", label: "Hoteles" },
+  { key: "periodos", label: "Períodos (Home)" },
   { key: "destinos", label: "Destinos" },
   { key: "transporte", label: "Transporte" },
   { key: "aerolineas", label: "Aerolíneas" },
   { key: "lugares", label: "Lugares de carga" },
+  { key: "banner", label: "Video Banner" },
 ];
 
 const ADD_LABELS: Record<Tab, string> = {
   hoteles: "Agregar Hotel",
+  periodos: "Agregar Período",
   destinos: "Agregar Destino",
   transporte: "Agregar Empresa de transporte",
   lugares: "Agregar Lugar de carga",
   aerolineas: "Agregar Aerolínea",
-  usuarios: "Agregar Usuario",
+  banner: "",
 };
+
 
 export default function ConfigAdminPage() {
   const [tab, setTab] = useState<Tab>("hoteles");
@@ -1483,23 +1924,25 @@ export default function ConfigAdminPage() {
       {/* Encabezado */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-4xl font-black text-gray-900">Parámetros</h1>
-        <button
-          onClick={handleAdd}
-          className="flex items-center gap-2 bg-[#1D5D8C] text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-[#164a70] transition-colors shadow-md"
-        >
-          <Plus className="w-4 h-4" />
-          {ADD_LABELS[tab]}
-        </button>
+        {tab !== "banner" && ADD_LABELS[tab] && (
+          <button
+            onClick={handleAdd}
+            className="flex items-center gap-2 bg-[#1D5D8C] text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-[#164a70] transition-colors shadow-md"
+          >
+            <Plus className="w-4 h-4" />
+            {ADD_LABELS[tab]}
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
-      <div className="flex border border-gray-200 rounded-xl overflow-hidden mb-6 w-fit shadow-sm">
+      <div className="flex flex-wrap border border-gray-200 rounded-xl overflow-hidden mb-6 w-fit shadow-sm">
         {TABS.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => handleTabChange(key)}
             className={cn(
-              "px-6 py-3 text-base font-bold transition-colors border-r border-gray-200 last:border-r-0",
+              "px-5 py-3 text-base font-bold transition-colors border-r border-gray-200 last:border-r-0",
               tab === key
                 ? "bg-[#1D5D8C] text-white"
                 : "bg-white text-gray-600 hover:bg-gray-50"
@@ -1512,10 +1955,12 @@ export default function ConfigAdminPage() {
 
       {/* Contenido */}
       {tab === "hoteles" && <HotelesTab addTrigger={addTrigger} />}
+      {tab === "periodos" && <PeriodosTab addTrigger={addTrigger} />}
       {tab === "destinos" && <DestinosTab addTrigger={addTrigger} />}
       {tab === "transporte" && <TransporteTab addTrigger={addTrigger} />}
       {tab === "aerolineas" && <AerolineasTab addTrigger={addTrigger} />}
       {tab === "lugares" && <LugaresCargaTab addTrigger={addTrigger} />}
+      {tab === "banner" && <VideoBannerTab />}
     </div>
   );
 }

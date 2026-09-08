@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import asc
+from fastapi import HTTPException
+from app.models.package import Paquete
 from typing import Optional
 from app.models.booking import Reserva, Pasajero, ReservaStatus
 from app.schemas.booking import ReservaCreate, ReservaFullUpdate
@@ -52,7 +54,18 @@ def get_todas_reservas(
     return q.offset(skip).limit(limit).all()
 
 
+def require_available_package(db: Session, paquete_id: int):
+    # A locking read sees the latest flag and serializes booking creation with
+    # updates to the package in MySQL. Hold the lock until the booking commits.
+    paquete = db.query(Paquete.id, Paquete.completo).filter(Paquete.id == paquete_id).with_for_update().first()
+    if paquete is None:
+        raise HTTPException(404, "Paquete no encontrado.")
+    if paquete.completo:
+        raise HTTPException(409, "Este paquete está completo y no acepta nuevas reservas.")
+
+
 def create_reserva(db: Session, reserva: ReservaCreate, vendedor_id: int, auto_approve: bool = False):
+    require_available_package(db, reserva.paquete_id)
     estado = ReservaStatus.APROBADA if auto_approve else ReservaStatus.PENDIENTE
     db_reserva = Reserva(
         vendedor_id=vendedor_id,
@@ -108,6 +121,8 @@ def update_reserva_full(db: Session, reserva_id: int, data: ReservaFullUpdate):
         return None
 
     if data.paquete_id is not None:
+        if data.paquete_id != reserva.paquete_id:
+            require_available_package(db, data.paquete_id)
         reserva.paquete_id = data.paquete_id
     if data.hotel_id is not None:
         reserva.hotel_id = data.hotel_id

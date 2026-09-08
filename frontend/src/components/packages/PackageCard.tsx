@@ -10,6 +10,8 @@ interface HotelDetalle {
 }
 
 interface Package {
+  completo?: boolean;
+  salidas_diarias?: boolean;
   id: number;
   destino: { nombre: string };
   titulo_subtitulo: string;
@@ -26,7 +28,7 @@ interface Package {
 }
 
 export function PackageCard({ pkg, compact = false }: { pkg: Package; compact?: boolean }) {
-  const esDiarias = pkg.tipo_salidas === "DIARIAS" || (pkg as any).salidas_diarias;
+  const esDiarias = pkg.tipo_salidas === "DIARIAS" || pkg.salidas_diarias;
   const formattedDate = esDiarias
     ? "Salidas diarias"
     : pkg.fecha_salida
@@ -56,6 +58,7 @@ export function PackageCard({ pkg, compact = false }: { pkg: Package; compact?: 
   if (compact) {
     return (
       <Link href={`/paquetes/${pkg.id}`} className="group relative w-full rounded-2xl overflow-hidden shadow-lg h-[420px] block">
+        {pkg.completo && <div className="absolute inset-x-0 top-0 z-20 bg-red-600 py-2 text-center text-sm font-black tracking-widest text-white">COMPLETO</div>}
         {/* Background */}
         <div className="absolute inset-0 z-0">
           <Image
@@ -67,7 +70,7 @@ export function PackageCard({ pkg, compact = false }: { pkg: Package; compact?: 
           <div className="absolute inset-0 bg-black/55 transition-colors group-hover:bg-black/45" />
         </div>
 
-        <div className="relative z-10 h-full flex flex-col justify-between px-6 py-6 text-white">
+        <div className="relative z-10 h-full flex flex-col justify-between px-6 py-6 text-white" style={{ paddingTop: pkg.completo ? 48 : undefined }}>
           {/* Top: subtítulo centrado — el destino ya figura en el header del grupo */}
           <div className="text-center">
             <p className="text-[22px] md:text-[26px] font-bold opacity-90 leading-tight">
@@ -142,6 +145,7 @@ export function PackageCard({ pkg, compact = false }: { pkg: Package; compact?: 
 
   return (
     <Link href={`/paquetes/${pkg.id}`} className="group relative w-full rounded-2xl overflow-hidden shadow-lg h-[420px] block">
+      {pkg.completo && <div className="absolute inset-x-0 top-0 z-20 bg-red-600 py-2 text-center text-sm font-black tracking-widest text-white">COMPLETO</div>}
       {/* Background */}
       <div className="absolute inset-0 z-0">
         <Image
@@ -154,7 +158,7 @@ export function PackageCard({ pkg, compact = false }: { pkg: Package; compact?: 
       </div>
 
       {/* Content — full height, title top / price bottom */}
-      <div className="relative z-10 h-full flex flex-col justify-between px-6 py-6 text-white">
+      <div className="relative z-10 h-full flex flex-col justify-between px-6 py-6 text-white" style={{ paddingTop: pkg.completo ? 48 : undefined }}>
 
         {/* ── Top: título y subtítulo centrados ── */}
         <div className="text-center">

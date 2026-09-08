@@ -27,6 +27,7 @@ interface AdicionalPrecio {
 }
 
 interface FormState {
+  completo: boolean;
   destino_id: string;
   categoria_id: string;
   imagen_url: string;
@@ -66,6 +67,7 @@ const EMPTY_HOTEL: HotelDetalle = { hotel_id: "", regimen: "", cantidad_noches: 
 const EMPTY_ADICIONAL_PRECIO: AdicionalPrecio = { nombre: "", valor: "" };
 
 const EMPTY: FormState = {
+  completo: false,
   destino_id: "", categoria_id: "", imagen_url: "", imagen_posicion: "center",
   tipo_salidas: "FECHA_ESPECIFICA",
   fecha_salida: "", fecha_regreso: "",
@@ -552,6 +554,7 @@ export function PackageForm({ initialData, packageId }: Props) {
         include_asistencia_medica: form.include_asistencia_medica,
         es_borrador: esDraft,
         estado: true,
+        completo: form.completo,
         periodo: form.periodo || null,
         hotel_detalles: hotelesValidos.map((h) => ({
           hotel_id: Number(h.hotel_id),
@@ -606,6 +609,13 @@ export function PackageForm({ initialData, packageId }: Props) {
       </h1>
 
       <div className="space-y-7">
+
+        <label className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 cursor-pointer">
+          <input type="checkbox" checked={form.completo} onChange={(e) => set("completo", e.target.checked)} className="mt-1 h-5 w-5 accent-red-600" />
+          <span><span className="block font-bold text-gray-900">Completo</span>
+            <span className="text-sm text-gray-600">Al guardar, el paquete seguirá visible con una franja roja y no aceptará nuevas reservas. Desmarcalo para volver a habilitarlas.</span>
+          </span>
+        </label>
 
         {/* ── Identificación ── */}
         <Divider label="Identificación" />

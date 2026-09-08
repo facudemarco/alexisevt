@@ -82,6 +82,7 @@ class Paquete(Base):
     include_transfer = Column(Boolean, default=True)
     include_asistencia_medica = Column(Boolean, default=True)
     es_borrador = Column(Boolean, default=False)
+    completo = Column(Boolean, nullable=False, default=False, server_default="0")
     estado = Column(Boolean, default=True)
     created_at = Column(Date, nullable=True)
     deleted_at = Column(Date, nullable=True)

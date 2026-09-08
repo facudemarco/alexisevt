@@ -44,6 +44,7 @@ class PaqueteBase(BaseModel):
     include_transfer: bool = True
     include_asistencia_medica: bool = True
     es_borrador: bool = False
+    completo: bool = False
     estado: bool = True
     regimen: Optional[str] = None
     gastos_reserva: float = 0
@@ -93,6 +94,7 @@ class PaqueteUpdate(BaseModel):
     include_transfer: Optional[bool] = None
     include_asistencia_medica: Optional[bool] = None
     es_borrador: Optional[bool] = None
+    completo: bool = False
     estado: Optional[bool] = None
     regimen: Optional[str] = None
     gastos_reserva: Optional[float] = None

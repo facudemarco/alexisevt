@@ -93,6 +93,8 @@ export default async function PackageDetailPage({
         )}
       </section>
 
+      {paquete.completo && <div className="bg-red-600 px-4 py-3 text-center font-black tracking-widest text-white">COMPLETO — Este paquete no acepta nuevas reservas</div>}
+
       {/* ── Imagen hero ─────────────────────────────────────────────────── */}
       {paquete.imagen_url && (
         <div className="relative w-full h-[320px] md:h-[460px]">

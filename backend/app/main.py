@@ -49,6 +49,10 @@ IMAGES_DIR = os.path.join(os.path.dirname(__file__), "../../data/images")
 os.makedirs(IMAGES_DIR, exist_ok=True)
 app.mount("/uploads/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
+VIDEOS_DIR = os.path.join(settings.VIDEOS_DIR, "published")
+os.makedirs(VIDEOS_DIR, exist_ok=True)
+app.mount("/uploads/videos", StaticFiles(directory=VIDEOS_DIR), name="videos")
+
 @app.get("/")
 def read_root():
     return {"message": f"Welcome to {settings.PROJECT_NAME}"}
