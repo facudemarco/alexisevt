@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from app.models.package import Paquete, PaqueteHotel
+from app.models.package import Paquete, PaqueteHotel, PaqueteFechaSalida
 from app.models.config import Categoria, Hotel, Transporte, Servicio, PuntoAscenso
 from app.schemas.package import PaqueteCreate, PaqueteUpdate
 
@@ -16,6 +16,7 @@ def get_paquete(db: Session, paquete_id: int):
             joinedload(Paquete.puntos_ascenso),
             joinedload(Paquete.aereo_puntos_ascenso),
             joinedload(Paquete.aerolinea),
+            joinedload(Paquete.fechas_salida),
         )
         .filter(Paquete.id == paquete_id)
         .first()
@@ -33,6 +34,7 @@ def get_paquetes(db: Session, skip: int = 0, limit: int = 100):
             joinedload(Paquete.puntos_ascenso),
             joinedload(Paquete.aereo_puntos_ascenso),
             joinedload(Paquete.aerolinea),
+            joinedload(Paquete.fechas_salida),
         )
         .filter(Paquete.estado == True, Paquete.es_borrador == False)
         .offset(skip)
@@ -62,7 +64,7 @@ def get_categoria_by_slug(db: Session, slug: str):
 
 def create_paquete(db: Session, paquete: PaqueteCreate):
     # Extraemos los campos base del esquema, excluyendo las relaciones que manejaremos manualmente
-    paquete_data = paquete.model_dump(exclude={"hotel_detalles", "transporte_ids", "servicio_ids", "punto_ascenso_ids", "aereo_punto_ascenso_ids"})
+    paquete_data = paquete.model_dump(exclude={"hotel_detalles", "transporte_ids", "servicio_ids", "punto_ascenso_ids", "aereo_punto_ascenso_ids", "fechas_salida"})
     db_paquete = Paquete(**paquete_data)
 
     # Hotel detalles (association object con régimen, noches y precio)
@@ -76,6 +78,14 @@ def create_paquete(db: Session, paquete: PaqueteCreate):
     db_paquete.servicios = db.query(Servicio).filter(Servicio.id.in_(paquete.servicio_ids)).all()
     db_paquete.puntos_ascenso = db.query(PuntoAscenso).filter(PuntoAscenso.id.in_(paquete.punto_ascenso_ids)).all()
     db_paquete.aereo_puntos_ascenso = db.query(PuntoAscenso).filter(PuntoAscenso.id.in_(paquete.aereo_punto_ascenso_ids)).all()
+
+    # Fechas de salida adicionales
+    for fs in paquete.fechas_salida:
+        db_paquete.fechas_salida.append(
+            PaqueteFechaSalida(fecha_salida=fs.fecha_salida, fecha_regreso=fs.fecha_regreso)
+        )
+
+    _sync_primary_date(db_paquete, bool(paquete.fechas_salida))
 
     db.add(db_paquete)
     db.commit()
@@ -96,6 +106,7 @@ def update_paquete(db: Session, paquete_id: int, paquete_in: PaqueteUpdate):
     servicio_ids = update_data.pop("servicio_ids", None)
     punto_ascenso_ids = update_data.pop("punto_ascenso_ids", None)
     aereo_punto_ascenso_ids = update_data.pop("aereo_punto_ascenso_ids", None)
+    fechas_salida = update_data.pop("fechas_salida", None)
 
     for field, value in update_data.items():
         setattr(db_paquete, field, value)
@@ -119,9 +130,34 @@ def update_paquete(db: Session, paquete_id: int, paquete_in: PaqueteUpdate):
     if aereo_punto_ascenso_ids is not None:
         db_paquete.aereo_puntos_ascenso = db.query(PuntoAscenso).filter(PuntoAscenso.id.in_(aereo_punto_ascenso_ids)).all()
 
+    # Fechas de salida adicionales
+    if fechas_salida is not None:
+        db_paquete.fechas_salida.clear()
+        for fs in fechas_salida:
+            db_paquete.fechas_salida.append(
+                PaqueteFechaSalida(
+                    paquete_id=db_paquete.id,
+                    fecha_salida=fs["fecha_salida"],
+                    fecha_regreso=fs.get("fecha_regreso"),
+                )
+            )
+
+    _sync_primary_date(db_paquete, fechas_salida is not None)
+
     db.commit()
     db.refresh(db_paquete)
     return db_paquete
+
+
+def _sync_primary_date(paquete: Paquete, dates_changed: bool):
+    if paquete.tipo_salidas == "DIARIAS":
+        paquete.fechas_salida.clear()
+        paquete.fecha_salida = None
+        paquete.fecha_regreso = None
+    elif dates_changed:
+        first = min(paquete.fechas_salida, key=lambda f: f.fecha_salida, default=None)
+        paquete.fecha_salida = first.fecha_salida if first else None
+        paquete.fecha_regreso = first.fecha_regreso if first else None
 
 
 def delete_paquete(db: Session, paquete_id: int):

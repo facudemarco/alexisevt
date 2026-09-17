@@ -47,6 +47,18 @@ class PaqueteHotel(Base):
     hotel = relationship("Hotel")
 
 
+class PaqueteFechaSalida(Base):
+    """Fechas de salida adicionales para paquetes tipo FECHA_ESPECIFICA."""
+    __tablename__ = "paquete_fechas_salida"
+
+    id = Column(Integer, primary_key=True, index=True)
+    paquete_id = Column(Integer, ForeignKey("paquetes.id", ondelete="CASCADE"), nullable=False)
+    fecha_salida = Column(Date, nullable=False)
+    fecha_regreso = Column(Date, nullable=True)
+
+    paquete = relationship("Paquete", back_populates="fechas_salida")
+
+
 class Paquete(Base):
     __tablename__ = "paquetes"
 
@@ -103,5 +115,11 @@ class Paquete(Base):
     puntos_ascenso = relationship("PuntoAscenso", secondary=paquete_punto_ascenso_table)
     aereo_puntos_ascenso = relationship("PuntoAscenso", secondary=paquete_aereo_punto_ascenso_table)
     aerolinea = relationship("Aerolinea")
+    fechas_salida = relationship(
+        "PaqueteFechaSalida",
+        back_populates="paquete",
+        cascade="all, delete-orphan",
+        order_by="PaqueteFechaSalida.fecha_salida",
+    )
 
     reservas = relationship("Reserva", back_populates="paquete")

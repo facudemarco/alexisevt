@@ -55,6 +55,7 @@ export interface Paquete {
   titulo_subtitulo: string;
   fecha_salida?: string;    // ISO date string "YYYY-MM-DD"
   fecha_regreso?: string;
+  fechas_salida?: { id?: number; fecha_salida: string; fecha_regreso?: string | null }[];
   duracion_dias: number;
   duracion_noches: number;
   precio_base: number;

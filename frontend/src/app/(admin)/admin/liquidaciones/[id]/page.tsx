@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { fetchApi } from "@/lib/api";
+import { previewComision } from "@/lib/liquidacion";
 import {
-  ArrowLeft, Plus, Trash2, Pencil, Save, X, Printer,
+  ArrowLeft, Plus, Trash2, Pencil, Save, X, Printer, Check, Loader2,
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -301,6 +302,67 @@ export default function LiquidacionDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [deletingPagoId, setDeletingPagoId] = useState<number | null>(null);
 
+  // ── Inline comision editing ──────────────────────────────────────────
+  const [editingComision, setEditingComision] = useState(false);
+  const [comisionInput, setComisionInput] = useState("");
+  const [savingComision, setSavingComision] = useState(false);
+  const [comisionError, setComisionError] = useState("");
+  const savingComisionRef = useRef(false);
+  const comisionInputRef = useRef<HTMLInputElement>(null);
+
+  const startEditComision = () => {
+    if (!liq) return;
+    setComisionInput(String(liq.comision_porcentaje));
+    setComisionError("");
+    setEditingComision(true);
+    setTimeout(() => comisionInputRef.current?.select(), 30);
+  };
+
+  const saveComision = async () => {
+    if (!liq || savingComisionRef.current) return;
+    const newPct = Number(comisionInput);
+    if (!comisionInput.trim() || !Number.isFinite(newPct) || newPct < 0 || newPct > 100) {
+      setComisionError("Ingresá un porcentaje entre 0 y 100.");
+      return;
+    }
+    if (newPct === liq.comision_porcentaje) {
+      setEditingComision(false);
+      return;
+    }
+    setSavingComision(true);
+    savingComisionRef.current = true;
+    setComisionError("");
+    try {
+      const updated: Liquidacion = await fetchApi(`/liquidaciones/${liq.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          comision_porcentaje: newPct,
+          items: liq.items.map((it) => ({
+            orden: it.orden,
+            descripcion: it.descripcion,
+            precio: it.precio,
+            cant_pax: it.cant_pax,
+            aplica_comision: it.aplica_comision,
+          })),
+        }),
+      });
+      setLiq(updated);
+      setEditingComision(false);
+    } catch {
+      setComisionError("No se pudo guardar la comisión. Volvé a intentarlo.");
+    } finally {
+      setSavingComision(false);
+      savingComisionRef.current = false;
+    }
+  };
+
+  const cancelEditComision = () => {
+    setComisionError("");
+    setEditingComision(false);
+    if (liq) setComisionInput(String(liq.comision_porcentaje));
+  };
+  // ────────────────────────────────────────────────────────────────────
+
   const load = useCallback(() => {
     fetchApi(`/liquidaciones/${params.id}`)
       .then(setLiq)
@@ -527,10 +589,68 @@ export default function LiquidacionDetailPage() {
                 <span className="text-gray-700 font-medium">Subtotal :</span>
                 <span className="font-extrabold text-gray-900 text-right">{fmt(liq.subtotal).replace('$', '$ ')}.-</span>
               </div>
-              <div className="flex justify-between gap-10 text-lg print:text-base">
-                <span className="text-gray-700 font-medium">Comisión {liq.comision_porcentaje}%:</span>
-                <span className="font-extrabold text-gray-900 text-right">{fmt(liq.comision_monto).replace('$', '$ ')}.-</span>
+              <div className="flex justify-between gap-10 text-lg print:text-base items-center">
+                {/* Comisión — inline editable (no imprime el input) */}
+                <span className="text-gray-700 font-medium flex items-center gap-1.5">
+                  Comisión{" "}
+                  {editingComision ? (
+                    <span className="flex items-center gap-1 print:hidden">
+                      <input
+                        ref={comisionInputRef}
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        value={comisionInput}
+                        aria-label="Porcentaje de comisión"
+                        disabled={savingComision}
+                        onBlur={saveComision}
+                        onChange={(e) => setComisionInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveComision(); if (e.key === "Escape") cancelEditComision(); }}
+                        className="w-14 text-center border-b-2 border-[#1D5D8C] focus:outline-none bg-transparent font-bold text-gray-900 text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <span className="text-gray-700">%:</span>
+                      <button
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={saveComision}
+                        disabled={savingComision}
+                        className="text-green-600 hover:text-green-800 disabled:opacity-50"
+                        title="Guardar"
+                      >
+                        {savingComision ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onMouseDown={(e) => e.preventDefault()}
+                        disabled={savingComision}
+                        onClick={cancelEditComision}
+                        className="text-gray-400 hover:text-gray-600"
+                        title="Cancelar"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 cursor-pointer group print:hidden"
+                      onClick={startEditComision}
+                      title="Editar porcentaje de comisión"
+                    >
+                      <strong className="text-gray-900">{liq.comision_porcentaje}%</strong>
+                      <Pencil className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#1D5D8C] transition-colors" />
+                      <span className="text-gray-700 hidden print:inline">{liq.comision_porcentaje}%</span>
+                    </button>
+                  )}
+                  {/* Solo para impresión: texto estático */}
+                  <span className="hidden print:inline">{liq.comision_porcentaje}%:</span>
+                </span>
+                <span className="font-extrabold text-gray-900 text-right">
+                  {editingComision
+                    ? fmt(previewComision(comisionInput, liq.comision_porcentaje, liq.base_comision, liq.subtotal, liq.total_pagos).comision).replace('$', '$ ')
+                    : fmt(liq.comision_monto).replace('$', '$ ')}.-
+                </span>
               </div>
+              {comisionError && <p role="alert" className="text-sm text-red-600 print:hidden">{comisionError}</p>}
               <div className="flex justify-between gap-10 text-lg print:text-base">
                 <span className="text-gray-700 font-medium">Pagos</span>
                 <span className="font-extrabold text-gray-900 text-right">{fmt(liq.total_pagos).replace('$', '$ ')}.-</span>
@@ -539,7 +659,9 @@ export default function LiquidacionDetailPage() {
                 <div className="flex justify-between gap-10 text-2xl print:text-xl">
                   <span className="font-black text-gray-900 uppercase">SALDO TOTAL</span>
                   <span className="font-black text-gray-900 text-right">
-                    {fmt(liq.saldo).replace('$', '$ ')}
+                    {editingComision
+                      ? fmt(previewComision(comisionInput, liq.comision_porcentaje, liq.base_comision, liq.subtotal, liq.total_pagos).saldo).replace('$', '$ ')
+                      : fmt(liq.saldo).replace('$', '$ ')}
                   </span>
                 </div>
               </div>

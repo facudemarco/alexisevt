@@ -24,6 +24,7 @@ interface HotelDetalle {
 interface AdicionalPrecio {
   nombre: string;
   valor: string;
+  aplica_comision: boolean;
 }
 
 interface FormState {
@@ -32,8 +33,7 @@ interface FormState {
   imagen_url: string;
   imagen_posicion: string;
   tipo_salidas: "DIARIAS" | "FECHA_ESPECIFICA";
-  fecha_salida: string;
-  fecha_regreso: string;
+  fechas_salida: { fecha_salida: string; fecha_regreso: string }[];
   duracion_dias: string;
   duracion_noches: string;
   titulo_subtitulo: string;
@@ -63,12 +63,12 @@ interface FormState {
 }
 
 const EMPTY_HOTEL: HotelDetalle = { hotel_id: "", regimen: "", cantidad_noches: "", precio: "" };
-const EMPTY_ADICIONAL_PRECIO: AdicionalPrecio = { nombre: "", valor: "" };
+const EMPTY_ADICIONAL_PRECIO: AdicionalPrecio = { nombre: "", valor: "", aplica_comision: true };
 
 const EMPTY: FormState = {
   destino_id: "", categoria_id: "", imagen_url: "", imagen_posicion: "center",
   tipo_salidas: "FECHA_ESPECIFICA",
-  fecha_salida: "", fecha_regreso: "",
+  fechas_salida: [{ fecha_salida: "", fecha_regreso: "" }],
   duracion_dias: "", duracion_noches: "",
   titulo_subtitulo: "", moneda: "ARS",
   precio_base: "",
@@ -458,7 +458,7 @@ export function PackageForm({ initialData, packageId }: Props) {
 
   const addAdicionalPrecio = () => set("adicionales_precio", [...form.adicionales_precio, { ...EMPTY_ADICIONAL_PRECIO }]);
   const removeAdicionalPrecio = (i: number) => set("adicionales_precio", form.adicionales_precio.filter((_, idx) => idx !== i));
-  const setAdicionalPrecioField = (i: number, key: keyof AdicionalPrecio, v: string) => {
+  const setAdicionalPrecioField = <K extends keyof AdicionalPrecio>(i: number, key: K, v: AdicionalPrecio[K]) => {
     const arr = [...form.adicionales_precio];
     arr[i] = { ...arr[i], [key]: v };
     set("adicionales_precio", arr);
@@ -495,6 +495,16 @@ export function PackageForm({ initialData, packageId }: Props) {
 
   const handleSubmit = async (esDraft: boolean) => {
     setError("");
+    const fechas = form.tipo_salidas === "FECHA_ESPECIFICA" ? form.fechas_salida : [];
+    if (fechas.some((f) => !f.fecha_salida || (f.fecha_regreso && f.fecha_regreso < f.fecha_salida))) {
+      setError("Completá cada fecha de salida y verificá que el regreso no sea anterior.");
+      return;
+    }
+    if (new Set(fechas.map((f) => f.fecha_salida)).size !== fechas.length) {
+      setError("Las fechas de salida no pueden repetirse.");
+      return;
+    }
+    const fechasOrdenadas = [...fechas].sort((a, b) => a.fecha_salida.localeCompare(b.fecha_salida));
     if (!form.destino_id || !form.categoria_id) {
       setError("Destino y período son obligatorios.");
       return;
@@ -534,8 +544,9 @@ export function PackageForm({ initialData, packageId }: Props) {
         destino_id: Number(form.destino_id),
         categoria_id: Number(form.categoria_id),
         titulo_subtitulo: form.titulo_subtitulo,
-        fecha_salida: form.tipo_salidas === "FECHA_ESPECIFICA" && form.fecha_salida ? form.fecha_salida : null,
-        fecha_regreso: form.tipo_salidas === "FECHA_ESPECIFICA" && form.fecha_regreso ? form.fecha_regreso : null,
+        fechas_salida: fechasOrdenadas.map((f) => ({ ...f, fecha_regreso: f.fecha_regreso || null })),
+        fecha_salida: fechasOrdenadas[0]?.fecha_salida || null,
+        fecha_regreso: fechasOrdenadas[0]?.fecha_regreso || null,
         duracion_dias: Number(form.duracion_dias) || 0,
         duracion_noches: Number(form.duracion_noches) || 0,
         precio_base: precioBase,
@@ -699,15 +710,21 @@ export function PackageForm({ initialData, packageId }: Props) {
         </div>
 
         {form.tipo_salidas === "FECHA_ESPECIFICA" && (
-          <div className="grid grid-cols-2 gap-5">
-            <div>
-              <Label>Fecha de salida</Label>
-              <Input type="date" value={form.fecha_salida} onChange={(v) => set("fecha_salida", v)} />
-            </div>
-            <div>
-              <Label>Fecha de regreso</Label>
-              <Input type="date" value={form.fecha_regreso} onChange={(v) => set("fecha_regreso", v)} />
-            </div>
+          <div className="space-y-3">
+            {form.fechas_salida.map((fecha, i) => (
+              <div key={i} className="flex items-end gap-3">
+                {(["fecha_salida", "fecha_regreso"] as const).map((campo) => (
+                  <div key={campo} className="flex-1">
+                    <Label>{campo === "fecha_salida" ? "Fecha de salida" : "Fecha de regreso"}</Label>
+                    <Input type="date" value={fecha[campo]} onChange={(v) => set("fechas_salida", form.fechas_salida.map((f, index) => index === i ? { ...f, [campo]: v } : f))} />
+                  </div>
+                ))}
+                <button type="button" aria-label={`Eliminar salida ${i + 1}`} onClick={() => set("fechas_salida", form.fechas_salida.filter((_, index) => index !== i))} className="p-3 text-red-500"><Minus className="w-4 h-4" /></button>
+              </div>
+            ))}
+            <button type="button" onClick={() => set("fechas_salida", [...form.fechas_salida, { fecha_salida: "", fecha_regreso: "" }])} className="flex items-center gap-2 text-sm font-bold text-[#1D5D8C]">
+              <Plus className="w-4 h-4" /> Agregar fecha de salida
+            </button>
           </div>
         )}
 
@@ -1001,6 +1018,10 @@ export function PackageForm({ initialData, packageId }: Props) {
                   placeholder="0"
                   className="w-36"
                 />
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" checked={ap.aplica_comision} onChange={(e) => setAdicionalPrecioField(i, "aplica_comision", e.target.checked)} />
+                  Comisionable
+                </label>
                 <button
                   type="button"
                   onClick={() => removeAdicionalPrecio(i)}

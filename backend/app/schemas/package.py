@@ -1,7 +1,28 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import Optional, List, Dict, Any
 from datetime import date, time
 from app.schemas.config import Destino, Categoria, Hotel, Transporte, Servicio, PuntoAscenso, Aerolinea
+
+
+# --- PaqueteFechaSalida ---
+
+class PaqueteFechaSalidaCreate(BaseModel):
+    fecha_salida: date
+    fecha_regreso: Optional[date] = None
+
+    @model_validator(mode="after")
+    def validate_dates(self):
+        if self.fecha_regreso and self.fecha_regreso < self.fecha_salida:
+            raise ValueError("La fecha de regreso no puede ser anterior a la salida")
+        return self
+
+class PaqueteFechaSalidaSchema(BaseModel):
+    id: Optional[int] = None
+    fecha_salida: date
+    fecha_regreso: Optional[date] = None
+
+    class Config:
+        from_attributes = True
 
 
 # --- PaqueteHotel (junction con atributos) ---
@@ -64,6 +85,7 @@ class PaqueteBase(BaseModel):
     aereo_horario_salida: Optional[str] = None
     aereo_horario_salida_hasta: Optional[str] = None
     aereo_horario_regreso: Optional[str] = None
+    fechas_salida: List[PaqueteFechaSalidaCreate] = []
 
 
 class PaqueteCreate(PaqueteBase):
@@ -117,6 +139,7 @@ class PaqueteUpdate(BaseModel):
     servicio_ids: Optional[List[int]] = None
     punto_ascenso_ids: Optional[List[int]] = None
     aereo_punto_ascenso_ids: Optional[List[int]] = None
+    fechas_salida: Optional[List[PaqueteFechaSalidaCreate]] = None
 
 
 class PaqueteInDBBase(PaqueteBase):
@@ -129,6 +152,7 @@ class PaqueteInDBBase(PaqueteBase):
     puntos_ascenso: List[PuntoAscenso] = []
     aereo_puntos_ascenso: List[PuntoAscenso] = []
     aerolinea: Optional[Aerolinea] = None
+    fechas_salida: List[PaqueteFechaSalidaSchema] = []
 
     class Config:
         from_attributes = True

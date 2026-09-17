@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { fetchApi } from "@/lib/api";
+import { adicionalesLiquidacion, type AdicionalPrecio } from "@/lib/liquidacion";
 import { Plus, Eye, Trash2, Search, Receipt } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -61,6 +62,7 @@ interface ReservaParaSelector {
     precio_base: number;
     precio_adicional: number;
     gastos_reserva: number;
+    adicionales_json?: { adicionales_precio?: AdicionalPrecio[] } | null;
     destino?: { nombre: string };
   } | null;
   estado_reserva: string;
@@ -117,14 +119,11 @@ function NuevaLiquidacionModal({
       });
 
       // Precio adicional (ej: adicional cama) — comisionable
-      if (r.paquete.precio_adicional && Number(r.paquete.precio_adicional) > 0) {
-        preItems.push({
-          descripcion: "Adicional",
-          precio: String(r.paquete.precio_adicional),
-          cant_pax: r.pasajeros_adultos ?? 1,
-          aplica_comision: true,
-        });
-      }
+      preItems.push(...adicionalesLiquidacion(
+        r.paquete.adicionales_json?.adicionales_precio,
+        r.paquete.precio_adicional,
+        r.pasajeros_adultos ?? 1,
+      ));
 
       // Gastos de reserva (gastos administrativos) — NO comisionable
       if (r.paquete.gastos_reserva && Number(r.paquete.gastos_reserva) > 0) {

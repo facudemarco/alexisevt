@@ -20,8 +20,9 @@ export default function EditPackagePage() {
           imagen_url: pkg.imagen_url ?? "",
           imagen_posicion: pkg.imagen_posicion ?? "center",
           tipo_salidas: pkg.tipo_salidas ?? "FECHA_ESPECIFICA",
-          fecha_salida: pkg.fecha_salida ?? "",
-          fecha_regreso: pkg.fecha_regreso ?? "",
+          fechas_salida: pkg.fechas_salida?.length
+            ? pkg.fechas_salida.map((f: { fecha_salida: string; fecha_regreso?: string | null }) => ({ fecha_salida: f.fecha_salida, fecha_regreso: f.fecha_regreso ?? "" }))
+            : pkg.fecha_salida ? [{ fecha_salida: pkg.fecha_salida, fecha_regreso: pkg.fecha_regreso ?? "" }] : [],
           duracion_dias: String(pkg.duracion_dias ?? ""),
           duracion_noches: String(pkg.duracion_noches ?? ""),
           titulo_subtitulo: pkg.titulo_subtitulo ?? "",
@@ -31,6 +32,7 @@ export default function EditPackagePage() {
             ? pkg.adicionales_json.adicionales_precio.map((a: any) => ({
                 nombre: a.nombre ?? "",
                 valor: a.valor ? String(a.valor) : "",
+                aplica_comision: a.aplica_comision ?? true,
               }))
             : [],
           adicionales: Array.isArray(pkg.adicionales) && pkg.adicionales.length > 0 ? pkg.adicionales : [""],
