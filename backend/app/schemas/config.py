@@ -36,6 +36,10 @@ class Categoria(ConfigItemInDBBase):
 class CategoriaCreate(ConfigItemCreate):
     slug: Optional[str] = None
     imagen_url: Optional[str] = None
+class CategoriaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    slug: Optional[str] = None
+    imagen_url: Optional[str] = None
 
 # Hotel (con campos extendidos)
 class HotelBase(ConfigItemBase):
@@ -105,3 +109,7 @@ class AerolineaUpdate(ConfigItemBase):
     pass
 
 
+class HomeBannerConfig(BaseModel):
+    video_url: str
+    mobile_video_url: str = ""
+    poster_url: Optional[str] = "/resources/hero_cartelera.png"

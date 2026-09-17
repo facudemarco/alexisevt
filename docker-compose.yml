@@ -11,6 +11,27 @@ services:
       - "127.0.0.1:8011:8000"
     volumes:
       - /home/iweb/alexisevt/data/images:/app/data/images
+      - /home/iweb/alexisevt/data/videos:/app/data/videos
+    environment:
+      VIDEOS_DIR: /app/data/videos
+      VIDEOS_BASE_URL: /media/videos
+
+  video-worker:
+    build:
+      context: ./backend
+    command: python -m app.core.banner_video
+    restart: always
+    cpus: 4
+    mem_limit: 8g
+    env_file:
+      - ./backend/.env
+    environment:
+      VIDEOS_DIR: /app/data/videos
+      VIDEOS_BASE_URL: /media/videos
+    volumes:
+      - /home/iweb/alexisevt/data/videos:/app/data/videos
+    depends_on:
+      - backend
 
   frontend:
     build: 

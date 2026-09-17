@@ -1,13 +1,71 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { User } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/components/auth-provider";
 
+const DEFAULT_VIDEO_URL = "https://player.vimeo.com/video/1178920147?background=1&autoplay=1&loop=1&muted=1&autopause=0";
+const DEFAULT_POSTER_URL = "/resources/hero_cartelera.png";
+
+function formatVimeoEmbedUrl(url?: string): string {
+  if (!url || url.trim() === "") return DEFAULT_VIDEO_URL;
+  const trimmed = url.trim();
+
+  // Si es un ID numérico ej: "1178920147"
+  if (/^\d+$/.test(trimmed)) {
+    return `https://player.vimeo.com/video/${trimmed}?background=1&autoplay=1&loop=1&muted=1&autopause=0`;
+  }
+
+  // Si es enlace estándar vimeo.com/1178920147 o con query params
+  const match = trimmed.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (match && match[1]) {
+    return `https://player.vimeo.com/video/${match[1]}?background=1&autoplay=1&loop=1&muted=1&autopause=0`;
+  }
+
+  // Si ya es player.vimeo.com aseguramos los parámetros de fondo en loop
+  if (trimmed.includes("player.vimeo.com")) {
+    if (!trimmed.includes("background=1")) {
+      const sep = trimmed.includes("?") ? "&" : "?";
+      return `${trimmed}${sep}background=1&autoplay=1&loop=1&muted=1&autopause=0`;
+    }
+    return trimmed;
+  }
+
+  return trimmed;
+}
+
 export function HeroSection() {
   const { isAuthenticated, role, nombre } = useAuth();
+  const [videoUrl, setVideoUrl] = useState<string>("");
+  const [posterUrl, setPosterUrl] = useState<string>(DEFAULT_POSTER_URL);
+
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+    fetch(`${apiUrl}/config/home-banner`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.video_url) {
+          const mobile = window.matchMedia("(max-width: 767px)").matches;
+          setVideoUrl(formatVimeoEmbedUrl(mobile && data.mobile_video_url ? data.mobile_video_url : data.video_url));
+        }
+        if (data?.poster_url) {
+          setPosterUrl(data.poster_url);
+        }
+      })
+      .catch((err) => {
+        setVideoUrl(DEFAULT_VIDEO_URL);
+        console.warn("No se pudo cargar el banner personalizado de la Home, usando default:", err);
+      });
+  }, []);
+
+  const isDirectVideo =
+    videoUrl.endsWith(".mp4") ||
+    videoUrl.endsWith(".webm") ||
+    videoUrl.endsWith(".mov") ||
+    videoUrl.includes(".mp4?");
 
   return (
     <section className="relative h-[650px] flex items-center bg-gray-900 overflow-hidden px-8 md:px-24">
@@ -16,23 +74,38 @@ export function HeroSection() {
       */}
       <div id="inicio"
         className="absolute inset-0 bg-cover bg-center opacity-70"
-        style={{ backgroundImage: "url('/resources/hero_cartelera.png')" }}
+        style={{ backgroundImage: `url('${posterUrl}')` }}
       />
 
       {/* 
-        Vimeo Iframe with Object-Cover Effect:
-        - We make the iframe always 16:9 and at least 100% of the container.
+        Video Background with Object-Cover Effect:
+        - We make the video/iframe always 16:9 and at least 100% of the container.
         - Using transform translate to center it.
       */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <iframe
-          src="https://player.vimeo.com/video/1178920147?background=1&autoplay=1&loop=1&muted=1&autopause=0"
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[177.77vh] min-w-full min-h-full h-[100%] md:h-[56.25vw] opacity-100"
-          allow="autoplay; fullscreen; picture-in-picture"
-          referrerPolicy="strict-origin-when-cross-origin"
-          title="hero-alexis"
-          aria-hidden="true"
-        />
+        {isDirectVideo ? (
+          <video
+            key={videoUrl}
+            src={videoUrl}
+            poster={posterUrl}
+            preload="auto"
+            onError={(event) => { event.currentTarget.style.visibility = "hidden"; }}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[177.77vh] min-w-full min-h-full h-[100%] md:h-[56.25vw] object-cover opacity-100"
+          />
+        ) : videoUrl ? (
+          <iframe
+            src={videoUrl}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[177.77vh] min-w-full min-h-full h-[100%] md:h-[56.25vw] opacity-100"
+            allow="autoplay; fullscreen; picture-in-picture"
+            referrerPolicy="strict-origin-when-cross-origin"
+            title="hero-alexis"
+            aria-hidden="true"
+          />
+        ) : null}
       </div>
       <div className="absolute inset-0 bg-black/40 z-10" />
 

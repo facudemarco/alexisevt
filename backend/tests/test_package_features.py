@@ -86,16 +86,18 @@ class PackageFeaturesTest(unittest.TestCase):
 
     def test_migration_backfills_without_duplicates(self):
         self.create(fecha_salida="2027-01-03")
-        module_path = Path(__file__).parents[1] / "alembic/versions/013_add_paquete_fechas_salida.py"
-        spec = importlib.util.spec_from_file_location("migration_013", module_path)
+        module_path = Path(__file__).parents[1] / "alembic/versions/014_add_paquete_fechas_salida.py"
+        spec = importlib.util.spec_from_file_location("migration_014", module_path)
         migration = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(migration)
         with self.engine.begin() as connection:
             connection.execute(text("DROP TABLE paquete_fechas_salida"))
+            connection.execute(text("ALTER TABLE paquetes DROP COLUMN completo"))
             with Operations.context(MigrationContext.configure(connection)):
                 migration.upgrade()
                 migration.upgrade()
                 self.assertEqual(connection.execute(text("SELECT COUNT(*) FROM paquete_fechas_salida")).scalar(), 1)
+                self.assertFalse(connection.execute(text("SELECT completo FROM paquetes")).scalar())
                 migration.downgrade()
 
 

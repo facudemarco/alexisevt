@@ -2,13 +2,17 @@
 from alembic import op
 import sqlalchemy as sa
 
-revision = "013"
-down_revision = "012"
+revision = "014"
+down_revision = "013"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
+    # Some databases applied departures as 013 before the remote 013 was merged.
+    # Reconcile that state without changing their Alembic version manually.
+    if "completo" not in {c["name"] for c in sa.inspect(op.get_bind()).get_columns("paquetes")}:
+        op.add_column("paquetes", sa.Column("completo", sa.Boolean(), nullable=False, server_default=sa.false()))
     # Startup seed may already have created the table through create_all.
     if not sa.inspect(op.get_bind()).has_table("paquete_fechas_salida"):
         op.create_table(

@@ -9,7 +9,7 @@ const CATEGORIAS_FIJAS = ["Miniturismo", "Argentina", "Brasil", "Internacional",
 async function getPaquetes(): Promise<Paquete[]> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
   try {
-    const res = await fetch(`${apiUrl}/packages/`, { next: { revalidate: 60 } });
+    const res = await fetch(`${apiUrl}/packages/`, { cache: "no-store" });
     if (!res.ok) return [];
     return res.json();
   } catch {
@@ -48,6 +48,7 @@ function PackageCard({ paquete }: { paquete: Paquete }) {
 
   return (
     <article className="relative rounded-2xl overflow-hidden shadow-lg group min-h-[280px]">
+      {paquete.completo && <div className="absolute inset-x-0 top-0 z-20 bg-red-600 py-2 text-center text-sm font-black tracking-widest text-white">COMPLETO</div>}
       {/* Fondo */}
       {paquete.imagen_url ? (
         <Image

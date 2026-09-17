@@ -556,7 +556,7 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
   onClose: () => void;
   onSaved: (updated: Reserva) => void;
 }) {
-  const [paquetes, setPaquetes] = useState<{ id: number; titulo_subtitulo: string }[]>([]);
+  const [paquetes, setPaquetes] = useState<{ id: number; titulo_subtitulo: string; completo?: boolean }[]>([]);
   const [vendedores, setVendedores] = useState<VendedorOption[]>([]);
   const [allHoteles, setAllHoteles] = useState<HotelConfig[]>([]);
   const [paqueteDetalle, setPaqueteDetalle] = useState<PaqueteDetalle | null>(null);
@@ -753,7 +753,7 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
                 >
                   <option value="">Seleccionar paquete...</option>
                   {paquetes.map((p) => (
-                    <option key={p.id} value={p.id}>{p.titulo_subtitulo}</option>
+                    <option key={p.id} value={p.id} disabled={p.completo}>{p.titulo_subtitulo}{p.completo ? " — COMPLETO" : ""}</option>
                   ))}
                 </select>
               </div>
@@ -1140,7 +1140,7 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
 
 // ─── Create Booking Modal ─────────────────────────────────────────────────────
 
-interface PaqueteOption { id: number; titulo_subtitulo: string; precio_base: number; precio_adicional: number; moneda: string; fecha_salida?: string; fecha_regreso?: string; duracion_dias?: number; duracion_noches?: number; }
+interface PaqueteOption { completo?: boolean; id: number; titulo_subtitulo: string; precio_base: number; precio_adicional: number; moneda: string; fecha_salida?: string; fecha_regreso?: string; duracion_dias?: number; duracion_noches?: number; }
 
 function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [mode, setMode] = useState<"regular" | "bloqueo">("regular");
@@ -1341,7 +1341,7 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
                 >
                   <option value="">Seleccionar paquete...</option>
                   {paquetes.map((p) => (
-                    <option key={p.id} value={p.id}>{p.titulo_subtitulo}</option>
+                    <option key={p.id} value={p.id} disabled={p.completo}>{p.titulo_subtitulo}{p.completo ? " — COMPLETO" : ""}</option>
                   ))}
                 </select>
                 {selectedPkg && (

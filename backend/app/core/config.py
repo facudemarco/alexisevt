@@ -58,6 +58,19 @@ class Settings(BaseSettings):
     )
     SERVE_STATIC_LOCALLY: bool = True
 
+    # ── Videos (almacenamiento propio + FFmpeg) ──────────────────────────────
+    VIDEOS_BASE_URL: str = "http://localhost:8000/uploads/videos"
+    VIDEOS_DIR: str = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+        "data", "videos"
+    )
+    # Ruta al ejecutable de FFmpeg (en producción: /usr/bin/ffmpeg)
+    FFMPEG_PATH: str = "ffmpeg"
+    FFPROBE_PATH: str = "ffprobe"
+    VIDEO_MAX_UPLOAD_MB: int = 500
+    VIDEO_MAX_DURATION_SECONDS: int = 1800
+    VIDEO_PROCESS_TIMEOUT_SECONDS: int = 7200
+
     # ── CORS ─────────────────────────────────────────────────────────────────
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:3000",
@@ -73,6 +86,5 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str  = ""
     SMTP_FROM:     str  = "noreply@alexisevt.com"
     SMTP_TLS:      bool = True
-
 
 settings = Settings()

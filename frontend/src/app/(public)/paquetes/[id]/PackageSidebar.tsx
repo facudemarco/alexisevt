@@ -36,7 +36,7 @@ export function PackageSidebar({ paquete }: Props) {
   const isVendedor = isAuthenticated && role === "vendedor";
   const isAdmin = isAuthenticated && role === "admin";
   const isPublic = !isAuthenticated;
-  const canBooking = isVendedor || isAdmin || isPublic;
+  const canBooking = !paquete.completo && (isVendedor || isAdmin || isPublic);
   
   // Combinar puntos de ascenso de transporte terrestre y aéreo, asegurando que sean únicos
   const puntosAscenso = useMemo(() => {
@@ -96,6 +96,7 @@ export function PackageSidebar({ paquete }: Props) {
     + precioBase * menores;
 
   function goToPassengers() {
+    if (paquete.completo) return;
     if (paquete.tipo_salidas === "DIARIAS" && !fechaIda) {
       setError("Seleccioná una fecha de salida.");
       return;
@@ -151,7 +152,7 @@ export function PackageSidebar({ paquete }: Props) {
 
   // Vendedor/Admin: submit via API
   async function handleSubmitVendedor() {
-    if (!validatePassengers()) return;
+    if (paquete.completo || !validatePassengers()) return;
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
@@ -186,8 +187,22 @@ export function PackageSidebar({ paquete }: Props) {
   }
 
   // Public: compose WhatsApp message
-  function handleSubmitWhatsApp() {
-    if (!validatePassengers()) return;
+  async function handleSubmitWhatsApp() {
+    if (paquete.completo || !validatePassengers()) return;
+
+    setSaving(true);
+    try {
+      const current = await fetchApi(`/packages/${paquete.id}`, { cache: "no-store" });
+      if (current.completo) {
+        setError("Este paquete está completo y no acepta nuevas reservas.");
+        return;
+      }
+    } catch {
+      setError("No se pudo verificar la disponibilidad. Intentá nuevamente.");
+      return;
+    } finally {
+      setSaving(false);
+    }
 
     const destinoNombre = paquete.destino?.nombre ?? "Sin destino";
     let fechaSalida = "";
@@ -238,8 +253,15 @@ export function PackageSidebar({ paquete }: Props) {
 
     const encodedMsg = encodeURIComponent(msg);
     const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMsg}`;
-    window.open(whatsappUrl, "_blank");
+    window.location.assign(whatsappUrl);
     setStep("success");
+  }
+
+  if (paquete.completo) {
+    return <div className="overflow-hidden rounded-xl border border-red-200 bg-white">
+      <div className="bg-red-600 p-3 text-center font-black tracking-widest text-white">COMPLETO</div>
+      <p className="p-5 text-sm text-gray-700">Este paquete está completo y no acepta nuevas reservas.</p>
+    </div>;
   }
 
   return (
@@ -496,6 +518,7 @@ export function PackageSidebar({ paquete }: Props) {
             ) : (
               <button
                 onClick={handleSubmitWhatsApp}
+                disabled={saving}
                 className="w-full bg-[#25D366] hover:bg-[#1fb855] text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
               >
                 <MessageCircle className="w-4 h-4" />

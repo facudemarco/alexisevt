@@ -46,3 +46,6 @@ install.sh
 .hive-mind/
 .claude/
 AGENTS.md
+# Uploaded videos and persistent processing queue
+data/videos/
+backend/data/videos/
