@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Users, ChevronDown, ChevronUp, Loader2, CheckCircle, MessageCircle, Clock } from "lucide-react";
-import { Paquete, PuntoAscenso } from "@/types/package";
+import { Paquete } from "@/types/package";
 import { useAuth } from "@/components/auth-provider";
 import { fetchApi } from "@/lib/api";
 
@@ -89,7 +89,17 @@ export function PackageSidebar({ paquete }: Props) {
   const [expanded, setExpanded] = useState<number>(0); // which accordion is open
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [fechaIda, setFechaIda] = useState<string>("");
+  const fechasSalida = paquete.tipo_salidas === "DIARIAS" ? [] : (paquete.fechas_salida ?? []);
+  const [fechaIda, setFechaIda] = useState<string>(() =>
+    paquete.tipo_salidas === "DIARIAS"
+      ? ""
+      : fechasSalida.length === 1
+        ? fechasSalida[0].fecha_salida
+        : fechasSalida.length > 1
+          ? ""
+          : paquete.fecha_salida ?? ""
+  );
+  const salidaSeleccionada = fechasSalida.find((fecha) => fecha.fecha_salida === fechaIda);
 
   const totalPax = adultos + menores;
   const precioTotal = (precioBase + (paquete.precio_adicional ?? 0)) * adultos
@@ -97,7 +107,7 @@ export function PackageSidebar({ paquete }: Props) {
 
   function goToPassengers() {
     if (paquete.completo) return;
-    if (paquete.tipo_salidas === "DIARIAS" && !fechaIda) {
+    if ((paquete.tipo_salidas === "DIARIAS" || fechasSalida.length > 0) && !fechaIda) {
       setError("Seleccioná una fecha de salida.");
       return;
     }
@@ -162,7 +172,8 @@ export function PackageSidebar({ paquete }: Props) {
         pasajeros_adultos: adultos,
         pasajeros_menores: menores,
         precio_total: precioTotal,
-        fecha_salida: paquete.tipo_salidas === "DIARIAS" ? fechaIda : paquete.fecha_salida,
+        fecha_salida: fechaIda || paquete.fecha_salida,
+        fecha_regreso: salidaSeleccionada?.fecha_regreso ?? paquete.fecha_regreso,
         hotel_id: hotelActual?.hotel_id ?? undefined,
         pasajeros: pasajeros.map((p) => ({
           nombre: p.nombre,
@@ -206,12 +217,12 @@ export function PackageSidebar({ paquete }: Props) {
 
     const destinoNombre = paquete.destino?.nombre ?? "Sin destino";
     let fechaSalida = "";
-    if (paquete.tipo_salidas === "DIARIAS") {
+    if (paquete.tipo_salidas === "DIARIAS" || fechasSalida.length > 0) {
       if (fechaIda) {
         const [y, m, d] = fechaIda.split("-");
         fechaSalida = `${d}/${m}/${y}`;
       } else {
-        fechaSalida = "Salidas diarias";
+        fechaSalida = paquete.tipo_salidas === "DIARIAS" ? "Salidas diarias" : "";
       }
     } else if (paquete.fecha_salida) {
       const [y, m, d] = paquete.fecha_salida.split("-");
@@ -222,6 +233,10 @@ export function PackageSidebar({ paquete }: Props) {
     msg += `*Nueva Reserva - AlexisEVT*\n`;
     msg += `*Destino:* ${destinoNombre}\n`;
     if (fechaSalida) msg += `*Fecha de salida:* ${fechaSalida}\n`;
+    if (salidaSeleccionada?.fecha_regreso) {
+      const [y, m, d] = salidaSeleccionada.fecha_regreso.split("-");
+      msg += `*Fecha de regreso:* ${d}/${m}/${y}\n`;
+    }
     if (paquete.categoria) msg += `*Categoría:* ${paquete.categoria.nombre}\n`;
     msg += `*Pasajeros:* ${adultos} adulto${adultos !== 1 ? "s" : ""}`;
     if (menores > 0) msg += ` + ${menores} menor${menores !== 1 ? "es" : ""}`;
@@ -325,27 +340,53 @@ export function PackageSidebar({ paquete }: Props) {
       {/* Step 1 — seleccionar pasajeros */}
       {canBooking && step === "select" && (
         <div className="bg-white rounded-2xl shadow p-6 space-y-4">
-          {paquete.tipo_salidas === "DIARIAS" && (
+          {(paquete.tipo_salidas === "DIARIAS" || fechasSalida.length > 0) && (
             <div className="border-b border-gray-100 pb-4 mb-2">
-              <p className="font-bold text-gray-900 text-sm mb-1 uppercase tracking-tight">Salida todos los dias</p>
-              <p className="text-xs text-gray-500 mb-3 font-semibold">
-                Proxima salida: {new Date().toLocaleDateString('es-AR')}
+              <p className="font-bold text-gray-900 text-sm mb-1 uppercase tracking-tight">
+                {paquete.tipo_salidas === "DIARIAS" ? "Salida todos los días" : "Fechas de salida"}
               </p>
+              {paquete.tipo_salidas === "DIARIAS" && (
+                <p className="text-xs text-gray-500 mb-3 font-semibold">
+                  Próxima salida: {new Date().toLocaleDateString("es-AR")}
+                </p>
+              )}
               
               <div className="relative">
                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Seleccioná una salida</label>
-                <div className="relative group">
-                  <input
-                    type="date"
+                {paquete.tipo_salidas !== "DIARIAS" && fechasSalida.length > 0 ? (
+                  <select
                     value={fechaIda}
                     onChange={(e) => setFechaIda(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5D8C] focus:border-transparent transition-all cursor-pointer text-gray-700 font-medium"
-                  />
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <Clock className="w-4 h-4 text-gray-400 group-focus-within:text-[#1D5D8C]" />
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5D8C] focus:border-transparent transition-all cursor-pointer text-gray-700 font-medium"
+                    required
+                  >
+                    <option value="">Elegí una fecha de salida...</option>
+                    {fechasSalida.map((fecha) => (
+                      <option key={fecha.id ?? fecha.fecha_salida} value={fecha.fecha_salida}>
+                        {new Date(`${fecha.fecha_salida}T00:00:00`).toLocaleDateString("es-AR")}
+                        {fecha.fecha_regreso ? ` — regreso ${new Date(`${fecha.fecha_regreso}T00:00:00`).toLocaleDateString("es-AR")}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="relative group">
+                    <input
+                      type="date"
+                      value={fechaIda}
+                      onChange={(e) => setFechaIda(e.target.value)}
+                      min={new Date().toISOString().split("T")[0]}
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5D8C] focus:border-transparent transition-all cursor-pointer text-gray-700 font-medium"
+                    />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <Clock className="w-4 h-4 text-gray-400 group-focus-within:text-[#1D5D8C]" />
+                    </div>
                   </div>
-                </div>
+                )}
+                {salidaSeleccionada?.fecha_regreso && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Regreso: {new Date(`${salidaSeleccionada.fecha_regreso}T00:00:00`).toLocaleDateString("es-AR")}
+                  </p>
+                )}
               </div>
             </div>
           )}
