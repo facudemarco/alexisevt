@@ -210,21 +210,6 @@ El backend incluye pruebas para las fechas múltiples de paquete, las fechas ele
 - `docs/adr/ADR-003-security-and-optimization.md`: temas históricos de seguridad y optimización; algunas secciones describen código anterior y deben contrastarse con la implementación actual.
 - `docs/adr/ADR-004-local-banner-video.md`: videos del banner y worker FFmpeg.
 
-## Aspectos a mejorar
-
-Prioridades sugeridas a partir de la revisión del código actual:
-
-1. **Credencial inicial del administrador:** `backend/app/seed.py` contiene una contraseña fija para el usuario inicial. Hacerla configurable, forzar cambio inicial y evitar la creación de una contraseña conocida en producción.
-2. **Sesión del navegador:** el frontend lee el JWT desde una cookie JavaScript (`js-cookie`). Migrar a cookies `HttpOnly`, `Secure` y `SameSite` reduce el impacto de una vulnerabilidad XSS.
-3. **Integridad de la salida elegida:** la reserva persiste las fechas, pero no el ID de `PaqueteFechaSalida`. Una referencia por ID o una copia inmutable de los datos de salida permitiría auditar qué salida se vendió aunque el paquete se edite después.
-4. **Schema y migraciones:** el arranque ejecuta `Base.metadata.create_all` además de existir Alembic. Dejar que las migraciones sean la única fuente de cambios de esquema ayuda a mantener instalaciones consistentes y evita divergencias entre ambientes.
-5. **Disponibilidad por salida:** el indicador `completo` aplica al paquete entero. Si cada fecha tiene cupos distintos, modelar capacidad y reservas por salida, y hacer la asignación atómica en base de datos.
-6. **Escalado del rate limiting:** los límites actuales usan almacenamiento en memoria. Cambiar a almacenamiento compartido como Redis antes de levantar varios procesos o instancias, y configurar proxies confiables en vez de confiar en encabezados IP arbitrarios.
-7. **Archivos y procesos pesados:** limitar tamaño de imágenes desde la API (incluyendo lectura en streaming), validar contenido real además del MIME y monitorizar el espacio usado por versiones de video y la cola de trabajos.
-8. **Pruebas de extremo a extremo:** agregar recorridos que prueben selección y persistencia de salidas en web, panel, edición, voucher y liquidación con MySQL, incluyendo cambios del paquete después de crear reservas.
-9. **Observabilidad y operación:** incorporar logs estructurados, IDs de correlación, métricas, alertas, política de backups/restauración verificada y rotación de secretos.
-10. **Documentación de despliegue:** convertir la configuración ligada al VPS en valores parametrizables, documentar rollback de migraciones/despliegue y revisar la documentación histórica ADR-003 contra el estado actual.
-
 ## Documentación adicional
 
 - `PROJECT_OVERVIEW.md`: resumen de arquitectura para colaboradores y herramientas de desarrollo.
