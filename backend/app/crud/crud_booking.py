@@ -1,3 +1,4 @@
+from datetime import date
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import asc
 from fastapi import HTTPException
@@ -64,8 +65,43 @@ def require_available_package(db: Session, paquete_id: int):
         raise HTTPException(409, "Este paquete está completo y no acepta nuevas reservas.")
 
 
+def resolve_departure_dates(
+    paquete: Paquete,
+    fecha_salida: Optional[date],
+    fecha_regreso: Optional[date] = None,
+) -> tuple[Optional[date], Optional[date]]:
+    """Validate a fixed-date booking against the package's published departures.
+
+    Daily departures retain their free date selection. Legacy packages without
+    departure rows also keep their existing behavior for compatibility.
+    """
+    if paquete.tipo_salidas == "DIARIAS" or not paquete.fechas_salida:
+        return fecha_salida, fecha_regreso
+
+    if fecha_salida is None:
+        raise HTTPException(422, "Seleccioná una fecha de salida cargada en el paquete.")
+
+    salida = next(
+        (item for item in paquete.fechas_salida if item.fecha_salida == fecha_salida),
+        None,
+    )
+    if salida is None:
+        raise HTTPException(422, "La fecha de salida seleccionada no pertenece a este paquete.")
+
+    if salida.fecha_regreso is not None:
+        if fecha_regreso is not None and fecha_regreso != salida.fecha_regreso:
+            raise HTTPException(422, "La fecha de regreso no coincide con la salida seleccionada.")
+        fecha_regreso = salida.fecha_regreso
+
+    return salida.fecha_salida, fecha_regreso
+
+
 def create_reserva(db: Session, reserva: ReservaCreate, vendedor_id: int, auto_approve: bool = False):
     require_available_package(db, reserva.paquete_id)
+    paquete = db.query(Paquete).filter(Paquete.id == reserva.paquete_id).first()
+    fecha_salida, fecha_regreso = resolve_departure_dates(
+        paquete, reserva.fecha_salida, reserva.fecha_regreso
+    )
     estado = ReservaStatus.APROBADA if auto_approve else ReservaStatus.PENDIENTE
     db_reserva = Reserva(
         vendedor_id=vendedor_id,
@@ -78,8 +114,8 @@ def create_reserva(db: Session, reserva: ReservaCreate, vendedor_id: int, auto_a
         pasajeros_menores=reserva.pasajeros_menores,
         precio_total=reserva.precio_total,
         estado_reserva=estado,
-        fecha_salida=reserva.fecha_salida,
-        fecha_regreso=reserva.fecha_regreso,
+        fecha_salida=fecha_salida,
+        fecha_regreso=fecha_regreso,
         duracion_dias=reserva.duracion_dias,
         duracion_noches=reserva.duracion_noches,
         es_bloqueo=bool(reserva.es_bloqueo),
@@ -124,6 +160,17 @@ def update_reserva_full(db: Session, reserva_id: int, data: ReservaFullUpdate):
         if data.paquete_id != reserva.paquete_id:
             require_available_package(db, data.paquete_id)
         reserva.paquete_id = data.paquete_id
+
+    departure_fields_sent = {"fecha_salida", "fecha_regreso"}.intersection(data.model_fields_set)
+    if data.paquete_id is not None or departure_fields_sent:
+        paquete = db.query(Paquete).filter(Paquete.id == reserva.paquete_id).first()
+        selected_departure, selected_return = resolve_departure_dates(
+            paquete,
+            data.fecha_salida if "fecha_salida" in data.model_fields_set else reserva.fecha_salida,
+            data.fecha_regreso if "fecha_regreso" in data.model_fields_set else reserva.fecha_regreso,
+        )
+        reserva.fecha_salida = selected_departure
+        reserva.fecha_regreso = selected_return
     if data.hotel_id is not None:
         reserva.hotel_id = data.hotel_id
     if data.vendedor_id is not None:
@@ -140,9 +187,9 @@ def update_reserva_full(db: Session, reserva_id: int, data: ReservaFullUpdate):
         reserva.pasajeros_menores = data.pasajeros_menores
     if data.precio_total is not None:
         reserva.precio_total = data.precio_total
-    if data.fecha_salida is not None:
+    if data.fecha_salida is not None and not departure_fields_sent:
         reserva.fecha_salida = data.fecha_salida
-    if data.fecha_regreso is not None:
+    if data.fecha_regreso is not None and not departure_fields_sent:
         reserva.fecha_regreso = data.fecha_regreso
     if data.duracion_dias is not None:
         reserva.duracion_dias = data.duracion_dias

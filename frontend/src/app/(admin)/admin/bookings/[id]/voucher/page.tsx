@@ -9,15 +9,11 @@ import {
   Pencil,
   Printer,
   Loader2,
-  CheckCircle,
   X,
   Bus,
   Building2,
   Save,
-  Phone,
   User,
-  Calendar,
-  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -84,7 +80,7 @@ function EditVoucherModal({
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"transporte" | "hoteleria" | "general">("transporte");
 
-  const handleChange = (field: keyof VoucherData, val: any) => {
+  const handleChange = (field: keyof VoucherData, val: string | number | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: val }));
   };
 
@@ -549,13 +545,13 @@ export default function VoucherPage() {
       </div>
 
       {/* Printable Document Container */}
-      <div className="p-4 sm:p-8 max-w-4xl mx-auto print:p-0 print:max-w-none bg-[#f4f6f8] print:bg-white min-h-screen space-y-8 print:space-y-6">
+      <div className="voucher-print-document p-4 sm:p-8 max-w-4xl mx-auto print:p-0 print:max-w-none bg-[#f4f6f8] print:bg-white min-h-screen space-y-8 print:space-y-3">
 
         {/* ════════════════════════════════════════════════════════════════════
             1. VOUCHER DE TRANSPORTE
            ════════════════════════════════════════════════════════════════════ */}
         {voucher.incluye_transporte && (
-          <div className="bg-white border-2 border-gray-800 rounded-xl p-6 print:p-6 shadow-md print:shadow-none relative break-inside-avoid">
+          <div className="voucher-print-card bg-white border-2 border-gray-800 rounded-xl p-6 print:p-4 shadow-md print:shadow-none relative break-inside-avoid">
             {/* Header: Logo + Título */}
             <div className="flex items-center justify-between gap-6 pb-3">
               <div className="relative w-28 h-16 shrink-0">
@@ -695,7 +691,7 @@ export default function VoucherPage() {
             2. VOUCHER DE HOTELERÍA
            ════════════════════════════════════════════════════════════════════ */}
         {voucher.incluye_hoteleria && (
-          <div className="bg-white border-2 border-gray-800 rounded-xl p-6 print:p-6 shadow-md print:shadow-none relative break-inside-avoid">
+          <div className="voucher-print-card bg-white border-2 border-gray-800 rounded-xl p-6 print:p-4 shadow-md print:shadow-none relative break-inside-avoid">
             {/* Header: Logo + Título */}
             <div className="flex items-center justify-between gap-6 pb-3">
               <div className="relative w-28 h-16 shrink-0">

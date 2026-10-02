@@ -74,6 +74,7 @@ interface PaqueteDetalle {
   periodo?: string;
   regimen?: string;
   tipo_salidas?: string;
+  fechas_salida?: { id?: number; fecha_salida: string; fecha_regreso?: string | null }[];
   aereo_incluido?: boolean;
   destino?: { id: number; nombre: string; sigla?: string };
   hotel_detalles?: HotelDetalle[];
@@ -621,13 +622,24 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
     if (!paqueteId) { setPaqueteDetalle(null); return; }
     fetchApi(`/packages/${paqueteId}`).then((d) => {
       setPaqueteDetalle(d);
-      // If no custom duration set, default to package duration
-      if (!duracionDias && d.duracion_dias) setDuracionDias(String(d.duracion_dias));
-      if (!duracionNoches && d.duracion_noches) setDuracionNoches(String(d.duracion_noches));
-      if (!fechaSalida && d.fecha_salida) setFechaSalida(d.fecha_salida);
-      if (!fechaRegreso && d.fecha_regreso) setFechaRegreso(d.fecha_regreso);
+      const isOriginalPackage = Number(paqueteId) === reserva.paquete_id;
+      const originalDeparture = isOriginalPackage ? reserva.fecha_salida : undefined;
+      const matchingDeparture = d.fechas_salida?.find((item: { fecha_salida: string }) => item.fecha_salida === originalDeparture);
+      const onlyDeparture = d.tipo_salidas !== "DIARIAS" && d.fechas_salida?.length === 1 ? d.fechas_salida[0] : null;
+      if (d.tipo_salidas !== "DIARIAS" && d.fechas_salida?.length) {
+        const departure = matchingDeparture ?? (!originalDeparture ? onlyDeparture : null);
+        setFechaSalida(departure?.fecha_salida ?? "");
+        setFechaRegreso(departure?.fecha_regreso ?? "");
+      } else {
+        setFechaSalida(isOriginalPackage ? (reserva.fecha_salida ?? d.fecha_salida ?? "") : (d.fecha_salida ?? ""));
+        setFechaRegreso(isOriginalPackage ? (reserva.fecha_regreso ?? d.fecha_regreso ?? "") : (d.fecha_regreso ?? ""));
+      }
+      if (!isOriginalPackage || !reserva.duracion_dias) setDuracionDias(String(d.duracion_dias ?? ""));
+      if (!isOriginalPackage || !reserva.duracion_noches) setDuracionNoches(String(d.duracion_noches ?? ""));
     }).catch(() => {});
-  }, [paqueteId]);
+  }, [paqueteId, reserva.paquete_id, reserva.fecha_salida, reserva.fecha_regreso, reserva.duracion_dias, reserva.duracion_noches]);
+
+  const fechasPaqueteEdit = paqueteDetalle?.tipo_salidas === "DIARIAS" ? [] : (paqueteDetalle?.fechas_salida ?? []);
 
   function syncPaxCount(newAdults: number, newMinors: number) {
     const total = newAdults + newMinors;
@@ -657,7 +669,11 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
   }
 
   async function handleSave() {
+    if (!paqueteId) { setError("Seleccioná un paquete."); return; }
     if (!clienteNombre.trim()) { setError("Ingresá el nombre del cliente / grupo."); return; }
+    if ((paqueteDetalle?.tipo_salidas === "DIARIAS" || fechasPaqueteEdit.length > 0) && !fechaSalida) {
+      setError("Seleccioná una fecha de salida."); return;
+    }
 
     // Validación de pasajeros solo si no es bloqueo vacío o si se completaron filas
     if (!esBloqueo) {
@@ -866,12 +882,33 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-600 mb-1">Fecha Salida</label>
-                    <input
-                      type="date"
-                      value={fechaSalida}
-                      onChange={(e) => setFechaSalida(e.target.value)}
-                      className="w-full h-10 px-3 rounded-lg border-2 border-gray-200 text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1D5D8C] bg-white transition-colors"
-                    />
+                    {paqueteDetalle?.tipo_salidas !== "DIARIAS" && fechasPaqueteEdit.length > 0 ? (
+                      <select
+                        value={fechaSalida}
+                        onChange={(e) => {
+                          const departure = fechasPaqueteEdit.find((item) => item.fecha_salida === e.target.value);
+                          setFechaSalida(e.target.value);
+                          setFechaRegreso(departure?.fecha_regreso ?? "");
+                        }}
+                        required
+                        className="w-full h-10 px-3 rounded-lg border-2 border-gray-200 text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1D5D8C] bg-white transition-colors"
+                      >
+                        <option value="">Seleccionar salida...</option>
+                        {fechasPaqueteEdit.map((departure) => (
+                          <option key={departure.id ?? departure.fecha_salida} value={departure.fecha_salida}>
+                            {fmt(departure.fecha_salida)}{departure.fecha_regreso ? ` — regreso ${fmt(departure.fecha_regreso)}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="date"
+                        value={fechaSalida}
+                        onChange={(e) => setFechaSalida(e.target.value)}
+                        required={paqueteDetalle?.tipo_salidas === "DIARIAS"}
+                        className="w-full h-10 px-3 rounded-lg border-2 border-gray-200 text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1D5D8C] bg-white transition-colors"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-600 mb-1">Fecha Regreso</label>
@@ -1183,11 +1220,22 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
 
   // When package changes
   useEffect(() => {
-    if (!paqueteId) { setPaqueteDetalle(null); return; }
+    if (!paqueteId) { setPaqueteDetalle(null); setFechaSalida(""); setFechaRegreso(""); return; }
+    setPaqueteDetalle(null);
+    setFechaSalida("");
+    setFechaRegreso("");
     fetchApi(`/packages/${paqueteId}`).then((d) => {
       setPaqueteDetalle(d);
-      if (d.fecha_salida) setFechaSalida(d.fecha_salida);
-      if (d.fecha_regreso) setFechaRegreso(d.fecha_regreso);
+      const unicaSalida = d.tipo_salidas !== "DIARIAS" && d.fechas_salida?.length === 1
+        ? d.fechas_salida[0]
+        : null;
+      if (unicaSalida) {
+        setFechaSalida(unicaSalida.fecha_salida);
+        setFechaRegreso(unicaSalida.fecha_regreso ?? "");
+      } else if (!d.fechas_salida?.length || d.tipo_salidas === "DIARIAS") {
+        setFechaSalida(d.fecha_salida ?? "");
+        setFechaRegreso(d.fecha_regreso ?? "");
+      }
       if (d.duracion_dias) setDuracionDias(String(d.duracion_dias));
       if (d.duracion_noches) setDuracionNoches(String(d.duracion_noches));
       if (d.hotel_detalles && d.hotel_detalles[0]) {
@@ -1198,6 +1246,7 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
 
   const totalPax = adultos + menores;
   const selectedPkg = paquetes.find((p) => String(p.id) === paqueteId);
+  const fechasPaquete = paqueteDetalle?.tipo_salidas === "DIARIAS" ? [] : (paqueteDetalle?.fechas_salida ?? []);
 
   const autoCalculatedPrice = selectedPkg
     ? (selectedPkg.precio_base + (selectedPkg.precio_adicional ?? 0)) * adultos + selectedPkg.precio_base * menores
@@ -1228,6 +1277,9 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
   async function handleSave() {
     if (!paqueteId) { setError("Seleccioná un paquete."); return; }
     if (!clienteNombre.trim()) { setError("Ingresá el nombre del cliente / grupo."); return; }
+    if ((paqueteDetalle?.tipo_salidas === "DIARIAS" || fechasPaquete.length > 0) && !fechaSalida) {
+      setError("Seleccioná una fecha de salida."); return;
+    }
 
     if (mode === "regular") {
       for (let i = 0; i < pasajeros.length; i++) {
@@ -1420,12 +1472,33 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
                 <div>
                   <label className="block text-xs font-bold text-gray-600 mb-1">Fecha Salida</label>
-                  <input
-                    type="date"
-                    value={fechaSalida}
-                    onChange={(e) => setFechaSalida(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border-2 border-gray-200 text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1D5D8C] bg-white transition-colors"
-                  />
+                  {paqueteDetalle?.tipo_salidas !== "DIARIAS" && fechasPaquete.length > 0 ? (
+                    <select
+                      value={fechaSalida}
+                      onChange={(e) => {
+                        const departure = fechasPaquete.find((item) => item.fecha_salida === e.target.value);
+                        setFechaSalida(e.target.value);
+                        setFechaRegreso(departure?.fecha_regreso ?? "");
+                      }}
+                      required
+                      className="w-full h-10 px-3 rounded-lg border-2 border-gray-200 text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1D5D8C] bg-white transition-colors"
+                    >
+                      <option value="">Seleccionar salida...</option>
+                      {fechasPaquete.map((departure) => (
+                        <option key={departure.id ?? departure.fecha_salida} value={departure.fecha_salida}>
+                          {fmt(departure.fecha_salida)}{departure.fecha_regreso ? ` — regreso ${fmt(departure.fecha_regreso)}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="date"
+                      value={fechaSalida}
+                      onChange={(e) => setFechaSalida(e.target.value)}
+                      required={paqueteDetalle?.tipo_salidas === "DIARIAS"}
+                      className="w-full h-10 px-3 rounded-lg border-2 border-gray-200 text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1D5D8C] bg-white transition-colors"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-600 mb-1">Fecha Regreso</label>
@@ -1733,8 +1806,8 @@ export default function BookingsPage() {
 
     // Sorting
     result = [...result].sort((a, b) => {
-      let valA: any = "";
-      let valB: any = "";
+      let valA: string | number = "";
+      let valB: string | number = "";
 
       switch (sortBy) {
         case "id": valA = a.id; valB = b.id; break;
@@ -1746,9 +1819,10 @@ export default function BookingsPage() {
         case "fecha_creacion": valA = a.fecha_creacion; valB = b.fecha_creacion; break;
       }
 
-      if (valA < valB) return sortOrder === "asc" ? -1 : 1;
-      if (valA > valB) return sortOrder === "asc" ? 1 : -1;
-      return 0;
+      const comparison = typeof valA === "number" && typeof valB === "number"
+        ? valA - valB
+        : String(valA).localeCompare(String(valB));
+      return sortOrder === "asc" ? comparison : -comparison;
     });
 
     return result;

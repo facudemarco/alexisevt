@@ -43,3 +43,54 @@
 @utility clip-triangle-br {
   clip-path: polygon(100% 0, 100% 100%, 0 100%);
 }
+
+@page {
+  size: A4 portrait;
+  margin: 8mm;
+}
+
+@media print {
+  html,
+  body {
+    width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  /* Imprime solo el comprobante, fuera del marco y los datos de sesión del panel. */
+  body:has(.voucher-print-document) * {
+    visibility: hidden !important;
+  }
+
+  body:has(.voucher-print-document) .voucher-print-document,
+  body:has(.voucher-print-document) .voucher-print-document * {
+    visibility: visible !important;
+  }
+
+  body:has(.voucher-print-document) .voucher-print-document {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3mm !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  body:has(.voucher-print-document) .voucher-print-card {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border: 1px solid #1f2937 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
