@@ -14,7 +14,7 @@ Alexis EVT combina un sitio público de turismo con un panel para administrar pa
 
 - **Paquete** y sus asociaciones a destino, categoría, hotel, transporte, servicios y puntos de ascenso.
 - **PaqueteFechaSalida**, que permite definir múltiples fechas de salida y regreso.
-- **Reserva**, que conserva la salida seleccionada, pasajeros, vendedor, estado y precio.
+- **Reserva**, que conserva la salida seleccionada y puede asociarse a un paquete o guardar los datos opcionales de un viaje manual. La carga manual se habilita para administradores desde el panel.
 - **Liquidación**, con conceptos, cálculo de comisión y pagos.
 
 La documentación funcional, instalación, variables de entorno, pruebas y prioridades de mejora están en el [README principal](README.md). Actualizá ese documento cuando cambie el comportamiento del sistema.

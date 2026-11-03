@@ -76,6 +76,8 @@ def create_reserva(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if reserva_in.paquete_id is None and current_user.rol != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Solo un administrador puede crear reservas sin paquete.")
     auto_approve = current_user.rol == UserRole.ADMIN
     # Admin puede asignar la reserva a un vendedor específico
     effective_vendedor_id = (

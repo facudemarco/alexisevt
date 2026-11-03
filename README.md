@@ -7,7 +7,7 @@ Sitio de viajes y sistema de gestión para Alexis EVT. El proyecto reúne el cat
 - **Sitio público:** inicio, categorías, ficha de paquete, cartelera, información de la agencia, contacto y sección de cuenta.
 - **Paquetes turísticos:** destinos, categorías, hoteles y precios asociados, transporte, servicios, puntos de ascenso, opciones aéreas, adicionales, imágenes y fechas de salida.
 - **Salidas múltiples:** un paquete de fechas específicas puede publicar varias combinaciones de salida y regreso. La reserva guarda las fechas elegidas; los paquetes con salidas diarias usan una fecha seleccionada en calendario.
-- **Reservas:** reservas de pasajeros individuales y bloqueos grupales para completar los pasajeros después. Vendedores crean reservas pendientes y administradores pueden crearlas aprobadas y asignarlas a un vendedor.
+- **Reservas:** reservas de pasajeros individuales y bloqueos grupales para completar los pasajeros después. Desde el panel, un administrador también puede crear una reserva sin paquete y cargar como opcionales el destino, fechas, duración, hotel, régimen, transporte, precio, moneda y notas. Vendedores crean reservas pendientes y administradores pueden crearlas aprobadas y asignarlas a un vendedor.
 - **Gestión comercial:** estados de reserva, avisos por correo y dentro del panel, vouchers, liquidaciones por reserva, conceptos comisionables y pagos parciales.
 - **Administración del sitio:** configuración de datos del catálogo, cartelera y video del banner.
 - **Archivos:** imágenes subidas al servidor y videos de banner procesados por un worker FFmpeg.
@@ -18,7 +18,7 @@ El visitante selecciona el paquete, una salida publicada cuando corresponda, la 
 
 ### Reserva desde el panel
 
-El panel permite crear reservas regulares o bloqueos grupales, asignar vendedor y hotel, editar la reserva y cargar pasajeros. En paquetes de fechas específicas con salidas cargadas, se elige una de esas salidas. La API valida que la fecha enviada siga perteneciendo al paquete y guarda su fecha de salida y, cuando está definida, su fecha de regreso.
+El panel permite crear reservas regulares o bloqueos grupales, asignar vendedor y hotel, editar la reserva y cargar pasajeros. También permite elegir “Sin paquete — carga manual”; en ese caso los datos del viaje son opcionales y se guardan en la propia reserva. Solo administradores pueden crear esa modalidad. En paquetes de fechas específicas con salidas cargadas, se elige una de esas salidas. La API valida que la fecha enviada siga perteneciendo al paquete y guarda su fecha de salida y, cuando está definida, su fecha de regreso.
 
 ## Tecnologías
 
@@ -78,11 +78,11 @@ FastAPI publica Swagger UI en `/docs` y ReDoc en `/redoc` cuando el servicio est
 
 - **Paquete:** apunta a destino y categoría; puede tener varias salidas, hoteles con precio/régimen, transportes, servicios y puntos de ascenso.
 - **PaqueteFechaSalida:** fila asociada al paquete con una fecha de salida y una fecha de regreso opcional.
-- **Reserva:** conserva `paquete_id`, `fecha_salida` y `fecha_regreso`, junto con el estado, cliente, vendedor, precio y cantidades de pasajeros. No referencia por ID la fila de salida del paquete; conserva las fechas como valores.
+- **Reserva:** puede vincularse a un `paquete_id` o guardar datos manuales opcionales del viaje; conserva las fechas seleccionadas, estado, cliente, vendedor, precio y cantidades de pasajeros. No referencia por ID la fila de salida del paquete; conserva las fechas como valores.
 - **Pasajero:** datos personales y punto de ascenso asociado a una reserva.
 - **Liquidación:** una por reserva, con conceptos, porcentaje de comisión y pagos.
 
-Las fechas múltiples se respaldan en la migración Alembic `014`. La migración copia la fecha existente de paquetes específicos a `paquete_fechas_salida` cuando aún no hay una fila para ese paquete.
+Las fechas múltiples se respaldan en la migración Alembic `014`. La migración copia la fecha existente de paquetes específicos a `paquete_fechas_salida` cuando aún no hay una fila para ese paquete. Los datos opcionales para reservas sin paquete se agregan con la migración `015`.
 
 ## Requisitos
 

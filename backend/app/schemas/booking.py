@@ -29,14 +29,21 @@ class Pasajero(PasajeroBase):
 
 
 class ReservaBase(BaseModel):
-    paquete_id: int
+    paquete_id: Optional[int] = None
     hotel_id: Optional[int] = None
+    titulo_viaje: Optional[str] = None
+    destino_manual: Optional[str] = None
+    hotel_manual: Optional[str] = None
+    regimen_manual: Optional[str] = None
+    transporte_manual: Optional[str] = None
+    moneda: Optional[str] = "ARS"
+    notas_viaje: Optional[str] = None
     cliente_nombre: Optional[str] = None
     cliente_email: Optional[str] = None
     cliente_telefono: Optional[str] = None
     pasajeros_adultos: int = 1
     pasajeros_menores: int = 0
-    precio_total: float
+    precio_total: Optional[float] = None
     fecha_salida: Optional[date] = None
     fecha_regreso: Optional[date] = None
     duracion_dias: Optional[int] = None
@@ -59,6 +66,13 @@ class ReservaUpdate(BaseModel):
 class ReservaFullUpdate(BaseModel):
     paquete_id: Optional[int] = None
     hotel_id: Optional[int] = None
+    titulo_viaje: Optional[str] = None
+    destino_manual: Optional[str] = None
+    hotel_manual: Optional[str] = None
+    regimen_manual: Optional[str] = None
+    transporte_manual: Optional[str] = None
+    moneda: Optional[str] = None
+    notas_viaje: Optional[str] = None
     vendedor_id: Optional[int] = None
     cliente_nombre: Optional[str] = None
     cliente_email: Optional[str] = None

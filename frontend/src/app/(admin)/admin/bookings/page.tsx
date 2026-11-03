@@ -85,8 +85,15 @@ interface PaqueteDetalle {
 interface Reserva {
   id: number;
   vendedor_id: number;
-  paquete_id: number;
+  paquete_id?: number | null;
   hotel_id?: number;
+  titulo_viaje?: string;
+  destino_manual?: string;
+  hotel_manual?: string;
+  regimen_manual?: string;
+  transporte_manual?: string;
+  moneda?: string;
+  notas_viaje?: string;
   cliente_nombre?: string;
   cliente_email?: string;
   cliente_telefono?: string;
@@ -202,12 +209,12 @@ function DetailModal({ reserva, onClose, onUpdate, onEdit }: {
   }
 
   const p = reserva.paquete;
-  const destino = p?.destino?.nombre ?? "—";
+  const destino = p?.destino?.nombre ?? reserva.destino_manual ?? reserva.titulo_viaje ?? "—";
 
   // Hotel y Regimen
   const hotelDetalle = p?.hotel_detalles?.find((d) => d.hotel_id === reserva.hotel_id) ?? p?.hotel_detalles?.[0];
-  const hotelNombre = reserva.hotel?.nombre ?? hotelDetalle?.hotel?.nombre ?? "—";
-  const hotelRegimen = hotelDetalle?.regimen ?? p?.regimen ?? null;
+  const hotelNombre = reserva.hotel?.nombre ?? hotelDetalle?.hotel?.nombre ?? reserva.hotel_manual ?? "—";
+  const hotelRegimen = hotelDetalle?.regimen ?? p?.regimen ?? reserva.regimen_manual ?? null;
 
   const fechaSalidaEfectiva = reserva.fecha_salida || p?.fecha_salida;
   const fechaRegresoEfectiva = reserva.fecha_regreso || p?.fecha_regreso;
@@ -271,6 +278,7 @@ function DetailModal({ reserva, onClose, onUpdate, onEdit }: {
                 <div className="px-6 py-5 space-y-1.5">
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Datos del Viaje y Estadía</p>
                   <p className="text-base font-extrabold text-[#1D5D8C]">{destino}</p>
+                  {reserva.titulo_viaje && <p className="text-sm font-semibold text-gray-700">{reserva.titulo_viaje}</p>}
                   {(fechaSalidaEfectiva || fechaRegresoEfectiva) && (
                     <p className="text-sm text-gray-700 flex items-center gap-1.5 font-medium">
                       <Calendar className="w-4 h-4 text-gray-400" />
@@ -293,8 +301,10 @@ function DetailModal({ reserva, onClose, onUpdate, onEdit }: {
                       )}
                     </p>
                   )}
+                  {reserva.transporte_manual && <p className="text-sm text-gray-700">Transporte: {reserva.transporte_manual}</p>}
+                  {reserva.notas_viaje && <p className="text-sm text-gray-600 whitespace-pre-wrap">{reserva.notas_viaje}</p>}
                   <p className="text-base font-black text-gray-900 pt-1">
-                    Total: ${reserva.precio_total?.toLocaleString("es-AR")}.-
+                    Total: {reserva.precio_total ? `${reserva.moneda === "USD" ? "U$D" : "$"} ${reserva.precio_total.toLocaleString("es-AR")}` : "A confirmar"}
                   </p>
                 </div>
               </div>
@@ -563,7 +573,7 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
   const [paqueteDetalle, setPaqueteDetalle] = useState<PaqueteDetalle | null>(null);
   const [loadingOpts, setLoadingOpts] = useState(true);
 
-  const [paqueteId, setPaqueteId] = useState(String(reserva.paquete_id));
+  const [paqueteId, setPaqueteId] = useState(reserva.paquete_id ? String(reserva.paquete_id) : "");
   const [hotelId, setHotelId] = useState(reserva.hotel_id ? String(reserva.hotel_id) : "");
   const [vendedorId, setVendedorId] = useState(reserva.vendedor_id ? String(reserva.vendedor_id) : "particular");
   const [clienteNombre, setClienteNombre] = useState(reserva.cliente_nombre ?? "");
@@ -572,6 +582,13 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
   const [adultos, setAdultos] = useState(reserva.pasajeros_adultos);
   const [menores, setMenores] = useState(reserva.pasajeros_menores);
   const [precioTotal, setPrecioTotal] = useState(String(reserva.precio_total));
+  const [tituloViaje, setTituloViaje] = useState(reserva.titulo_viaje ?? "");
+  const [destinoManual, setDestinoManual] = useState(reserva.destino_manual ?? "");
+  const [hotelManual, setHotelManual] = useState(reserva.hotel_manual ?? "");
+  const [regimenManual, setRegimenManual] = useState(reserva.regimen_manual ?? "");
+  const [transporteManual, setTransporteManual] = useState(reserva.transporte_manual ?? "");
+  const [moneda, setMoneda] = useState(reserva.moneda ?? "ARS");
+  const [notasViaje, setNotasViaje] = useState(reserva.notas_viaje ?? "");
   const [fechaSalida, setFechaSalida] = useState(reserva.fecha_salida ?? reserva.paquete?.fecha_salida ?? "");
   const [fechaRegreso, setFechaRegreso] = useState(reserva.fecha_regreso ?? reserva.paquete?.fecha_regreso ?? "");
   const [duracionDias, setDuracionDias] = useState(String(reserva.duracion_dias ?? reserva.paquete?.duracion_dias ?? ""));
@@ -669,7 +686,6 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
   }
 
   async function handleSave() {
-    if (!paqueteId) { setError("Seleccioná un paquete."); return; }
     if (!clienteNombre.trim()) { setError("Ingresá el nombre del cliente / grupo."); return; }
     if ((paqueteDetalle?.tipo_salidas === "DIARIAS" || fechasPaqueteEdit.length > 0) && !fechaSalida) {
       setError("Seleccioná una fecha de salida."); return;
@@ -702,14 +718,21 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
       const validPax = pasajeros.filter((p) => p.nombre.trim() && p.apellido.trim());
 
       const body: Record<string, unknown> = {
-        paquete_id: parseInt(paqueteId),
+        paquete_id: paqueteId ? parseInt(paqueteId) : null,
         hotel_id: hotelId ? parseInt(hotelId) : null,
+        titulo_viaje: tituloViaje.trim() || null,
+        destino_manual: destinoManual.trim() || null,
+        hotel_manual: hotelManual.trim() || null,
+        regimen_manual: regimenManual.trim() || null,
+        transporte_manual: transporteManual.trim() || null,
+        moneda: paqueteId ? (paqueteDetalle?.moneda ?? moneda) : moneda,
+        notas_viaje: notasViaje.trim() || null,
         cliente_nombre: clienteNombre.trim(),
         cliente_email: clienteEmail.trim() || null,
         cliente_telefono: clienteTelefono.trim() || null,
         pasajeros_adultos: adultos,
         pasajeros_menores: menores,
-        precio_total: parseFloat(precioTotal) || reserva.precio_total,
+        precio_total: Number.isFinite(parseFloat(precioTotal)) ? parseFloat(precioTotal) : 0,
         fecha_salida: fechaSalida || null,
         fecha_regreso: fechaRegreso || null,
         duracion_dias: duracionDias ? parseInt(duracionDias) : null,
@@ -761,18 +784,33 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
             <>
               {/* Paquete */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Paquete *</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">Paquete</label>
                 <select
                   value={paqueteId}
                   onChange={(e) => setPaqueteId(e.target.value)}
                   className="w-full h-11 px-4 rounded-xl border-2 border-gray-200 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1D5D8C] transition-colors appearance-none cursor-pointer"
                 >
-                  <option value="">Seleccionar paquete...</option>
+                  <option value="">Sin paquete — carga manual</option>
                   {paquetes.map((p) => (
                     <option key={p.id} value={p.id} disabled={p.completo}>{p.titulo_subtitulo}{p.completo ? " — COMPLETO" : ""}</option>
                   ))}
                 </select>
               </div>
+
+              {!paqueteId && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#1D5D8C]">Datos del viaje (opcionales)</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input value={tituloViaje} onChange={(e) => setTituloViaje(e.target.value)} placeholder="Nombre / título del viaje" className="h-10 px-3 rounded-lg border border-gray-200 text-sm" />
+                    <input value={destinoManual} onChange={(e) => setDestinoManual(e.target.value)} placeholder="Destino" className="h-10 px-3 rounded-lg border border-gray-200 text-sm" />
+                    <input value={hotelManual} onChange={(e) => setHotelManual(e.target.value)} placeholder="Hotel" className="h-10 px-3 rounded-lg border border-gray-200 text-sm" />
+                    <input value={regimenManual} onChange={(e) => setRegimenManual(e.target.value)} placeholder="Régimen / comidas" className="h-10 px-3 rounded-lg border border-gray-200 text-sm" />
+                    <input value={transporteManual} onChange={(e) => setTransporteManual(e.target.value)} placeholder="Transporte (tipo, empresa, servicio)" className="h-10 px-3 rounded-lg border border-gray-200 text-sm" />
+                    <select value={moneda} onChange={(e) => setMoneda(e.target.value)} className="h-10 px-3 rounded-lg border border-gray-200 text-sm bg-white"><option value="ARS">ARS ($)</option><option value="USD">USD (U$D)</option></select>
+                    <textarea value={notasViaje} onChange={(e) => setNotasViaje(e.target.value)} placeholder="Otros detalles del viaje" rows={2} className="md:col-span-2 p-3 rounded-lg border border-gray-200 text-sm" />
+                  </div>
+                </div>
+              )}
 
               {/* Selector de Hotel Mejorado */}
               <div>
@@ -1196,6 +1234,13 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
   const [adultos, setAdultos] = useState(1);
   const [menores, setMenores] = useState(0);
   const [precioTotalCustom, setPrecioTotalCustom] = useState("");
+  const [tituloViaje, setTituloViaje] = useState("");
+  const [destinoManual, setDestinoManual] = useState("");
+  const [hotelManual, setHotelManual] = useState("");
+  const [regimenManual, setRegimenManual] = useState("");
+  const [transporteManual, setTransporteManual] = useState("");
+  const [moneda, setMoneda] = useState("ARS");
+  const [notasViaje, setNotasViaje] = useState("");
   const [fechaSalida, setFechaSalida] = useState("");
   const [fechaRegreso, setFechaRegreso] = useState("");
   const [duracionDias, setDuracionDias] = useState("");
@@ -1226,6 +1271,7 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
     setFechaRegreso("");
     fetchApi(`/packages/${paqueteId}`).then((d) => {
       setPaqueteDetalle(d);
+      setMoneda(d.moneda ?? "ARS");
       const unicaSalida = d.tipo_salidas !== "DIARIAS" && d.fechas_salida?.length === 1
         ? d.fechas_salida[0]
         : null;
@@ -1275,7 +1321,6 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
   }
 
   async function handleSave() {
-    if (!paqueteId) { setError("Seleccioná un paquete."); return; }
     if (!clienteNombre.trim()) { setError("Ingresá el nombre del cliente / grupo."); return; }
     if ((paqueteDetalle?.tipo_salidas === "DIARIAS" || fechasPaquete.length > 0) && !fechaSalida) {
       setError("Seleccioná una fecha de salida."); return;
@@ -1292,8 +1337,15 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
     setError(""); setSaving(true);
     try {
       const body: Record<string, unknown> = {
-        paquete_id: parseInt(paqueteId),
+        paquete_id: paqueteId ? parseInt(paqueteId) : null,
         hotel_id: hotelId ? parseInt(hotelId) : null,
+        titulo_viaje: tituloViaje.trim() || undefined,
+        destino_manual: destinoManual.trim() || undefined,
+        hotel_manual: hotelManual.trim() || undefined,
+        regimen_manual: regimenManual.trim() || undefined,
+        transporte_manual: transporteManual.trim() || undefined,
+        moneda,
+        notas_viaje: notasViaje.trim() || undefined,
         cliente_nombre: clienteNombre.trim(),
         cliente_email: clienteEmail.trim() || undefined,
         cliente_telefono: clienteTelefono.trim() || undefined,
@@ -1385,13 +1437,13 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
 
               {/* Paquete */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Paquete *</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">Paquete</label>
                 <select
                   value={paqueteId}
                   onChange={(e) => setPaqueteId(e.target.value)}
                   className="w-full h-11 px-4 rounded-xl border-2 border-gray-200 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1D5D8C] transition-colors appearance-none cursor-pointer"
                 >
-                  <option value="">Seleccionar paquete...</option>
+                  <option value="">Sin paquete — carga manual</option>
                   {paquetes.map((p) => (
                     <option key={p.id} value={p.id} disabled={p.completo}>{p.titulo_subtitulo}{p.completo ? " — COMPLETO" : ""}</option>
                   ))}
@@ -1402,6 +1454,21 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
                   </p>
                 )}
               </div>
+
+              {!paqueteId && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#1D5D8C]">Datos del viaje (todos opcionales)</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input value={tituloViaje} onChange={(e) => setTituloViaje(e.target.value)} placeholder="Nombre / título del viaje" className="h-10 px-3 rounded-lg border border-gray-200 text-sm" />
+                    <input value={destinoManual} onChange={(e) => setDestinoManual(e.target.value)} placeholder="Destino" className="h-10 px-3 rounded-lg border border-gray-200 text-sm" />
+                    <input value={hotelManual} onChange={(e) => setHotelManual(e.target.value)} placeholder="Hotel" className="h-10 px-3 rounded-lg border border-gray-200 text-sm" />
+                    <input value={regimenManual} onChange={(e) => setRegimenManual(e.target.value)} placeholder="Régimen / comidas" className="h-10 px-3 rounded-lg border border-gray-200 text-sm" />
+                    <input value={transporteManual} onChange={(e) => setTransporteManual(e.target.value)} placeholder="Transporte (tipo, empresa, servicio)" className="h-10 px-3 rounded-lg border border-gray-200 text-sm" />
+                    <select value={moneda} onChange={(e) => setMoneda(e.target.value)} className="h-10 px-3 rounded-lg border border-gray-200 text-sm bg-white"><option value="ARS">ARS ($)</option><option value="USD">USD (U$D)</option></select>
+                    <textarea value={notasViaje} onChange={(e) => setNotasViaje(e.target.value)} placeholder="Otros detalles del viaje" rows={2} className="md:col-span-2 p-3 rounded-lg border border-gray-200 text-sm" />
+                  </div>
+                </div>
+              )}
 
               {/* Hotel */}
               <div>
@@ -1599,11 +1666,11 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
 
               {/* Precio Total */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Precio Total Pactado ($ ARS)</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">Precio Total Pactado {moneda === "USD" ? "(USD)" : "($ ARS)"}{paqueteId ? "" : " (opcional)"}</label>
                 <div className="relative">
                   <input
                     type="number"
-                    value={precioTotalCustom || (mode === "regular" && autoCalculatedPrice ? String(autoCalculatedPrice) : "")}
+                    value={precioTotalCustom || (paqueteId && mode === "regular" && autoCalculatedPrice ? String(autoCalculatedPrice) : "")}
                     onChange={(e) => setPrecioTotalCustom(e.target.value)}
                     placeholder={mode === "regular" && autoCalculatedPrice ? String(autoCalculatedPrice) : ""}
                     className="w-full h-11 px-4 rounded-xl border-2 border-gray-200 text-sm font-bold text-gray-900 focus:outline-none focus:border-[#1D5D8C] transition-colors"
@@ -1812,7 +1879,7 @@ export default function BookingsPage() {
       switch (sortBy) {
         case "id": valA = a.id; valB = b.id; break;
         case "cliente": valA = a.cliente_nombre?.toLowerCase() || ""; valB = b.cliente_nombre?.toLowerCase() || ""; break;
-        case "destino": valA = a.paquete?.destino?.nombre?.toLowerCase() || ""; valB = b.paquete?.destino?.nombre?.toLowerCase() || ""; break;
+        case "destino": valA = (a.paquete?.destino?.nombre ?? a.destino_manual ?? a.titulo_viaje ?? "").toLowerCase(); valB = (b.paquete?.destino?.nombre ?? b.destino_manual ?? b.titulo_viaje ?? "").toLowerCase(); break;
         case "salida":  valA = a.fecha_salida || a.paquete?.fecha_salida || ""; valB = b.fecha_salida || b.paquete?.fecha_salida || ""; break;
         case "pasajeros": valA = a.pasajeros_adultos + a.pasajeros_menores; valB = b.pasajeros_adultos + b.pasajeros_menores; break;
         case "estado": valA = a.estado_reserva; valB = b.estado_reserva; break;
@@ -2008,7 +2075,7 @@ export default function BookingsPage() {
                     </div>
                   </td>
                   <td className="px-3.5 py-3.5 border-b border-l border-gray-100 text-gray-700">
-                    {r.paquete?.destino?.nombre ?? "—"}
+                    {r.paquete?.destino?.nombre ?? r.destino_manual ?? r.titulo_viaje ?? "—"}
                   </td>
                   <td className="px-3.5 py-3.5 border-b border-l border-gray-100 text-gray-700 whitespace-nowrap font-medium">
                     {fmt(r.fecha_salida || r.paquete?.fecha_salida)}

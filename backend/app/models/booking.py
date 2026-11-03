@@ -55,6 +55,14 @@ class Reserva(Base):
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now())
 
     hotel_id = Column(Integer, ForeignKey("hoteles.id"), nullable=True)
+    # Datos descriptivos para reservas manuales que no pertenecen a un paquete.
+    titulo_viaje = Column(String(255), nullable=True)
+    destino_manual = Column(String(255), nullable=True)
+    hotel_manual = Column(String(255), nullable=True)
+    regimen_manual = Column(String(100), nullable=True)
+    transporte_manual = Column(String(255), nullable=True)
+    moneda = Column(String(10), nullable=True, default="ARS")
+    notas_viaje = Column(Text, nullable=True)
 
     # Relationships
     vendedor = relationship("User")

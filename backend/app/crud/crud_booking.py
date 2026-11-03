@@ -22,7 +22,7 @@ def get_reservas_by_vendedor(db: Session, vendedor_id: int, skip: int = 0, limit
     return (
         db.query(Reserva)
         .options(joinedload(Reserva.pasajeros).joinedload(Pasajero.punto_ascenso))
-        .join(Paquete, Reserva.paquete_id == Paquete.id)
+        .outerjoin(Paquete, Reserva.paquete_id == Paquete.id)
         .filter(Reserva.vendedor_id == vendedor_id)
         .order_by(asc(Paquete.fecha_salida))
         .offset(skip)
@@ -43,7 +43,7 @@ def get_todas_reservas(
     q = (
         db.query(Reserva)
         .options(joinedload(Reserva.pasajeros).joinedload(Pasajero.punto_ascenso))
-        .join(Paquete, Reserva.paquete_id == Paquete.id)
+        .outerjoin(Paquete, Reserva.paquete_id == Paquete.id)
     )
 
     if estado:
@@ -97,22 +97,32 @@ def resolve_departure_dates(
 
 
 def create_reserva(db: Session, reserva: ReservaCreate, vendedor_id: int, auto_approve: bool = False):
-    require_available_package(db, reserva.paquete_id)
-    paquete = db.query(Paquete).filter(Paquete.id == reserva.paquete_id).first()
-    fecha_salida, fecha_regreso = resolve_departure_dates(
-        paquete, reserva.fecha_salida, reserva.fecha_regreso
-    )
+    paquete = None
+    fecha_salida, fecha_regreso = reserva.fecha_salida, reserva.fecha_regreso
+    if reserva.paquete_id is not None:
+        require_available_package(db, reserva.paquete_id)
+        paquete = db.query(Paquete).filter(Paquete.id == reserva.paquete_id).first()
+        fecha_salida, fecha_regreso = resolve_departure_dates(
+            paquete, reserva.fecha_salida, reserva.fecha_regreso
+        )
     estado = ReservaStatus.APROBADA if auto_approve else ReservaStatus.PENDIENTE
     db_reserva = Reserva(
         vendedor_id=vendedor_id,
         paquete_id=reserva.paquete_id,
         hotel_id=reserva.hotel_id,
+        titulo_viaje=reserva.titulo_viaje,
+        destino_manual=reserva.destino_manual,
+        hotel_manual=reserva.hotel_manual,
+        regimen_manual=reserva.regimen_manual,
+        transporte_manual=reserva.transporte_manual,
+        moneda=reserva.moneda or "ARS",
+        notas_viaje=reserva.notas_viaje,
         cliente_nombre=reserva.cliente_nombre,
         cliente_email=reserva.cliente_email,
         cliente_telefono=reserva.cliente_telefono,
         pasajeros_adultos=reserva.pasajeros_adultos,
         pasajeros_menores=reserva.pasajeros_menores,
-        precio_total=reserva.precio_total,
+        precio_total=reserva.precio_total or 0,
         estado_reserva=estado,
         fecha_salida=fecha_salida,
         fecha_regreso=fecha_regreso,
@@ -156,13 +166,14 @@ def update_reserva_full(db: Session, reserva_id: int, data: ReservaFullUpdate):
     if not reserva:
         return None
 
-    if data.paquete_id is not None:
-        if data.paquete_id != reserva.paquete_id:
+    package_id_sent = "paquete_id" in data.model_fields_set
+    if package_id_sent:
+        if data.paquete_id is not None and data.paquete_id != reserva.paquete_id:
             require_available_package(db, data.paquete_id)
         reserva.paquete_id = data.paquete_id
 
     departure_fields_sent = {"fecha_salida", "fecha_regreso"}.intersection(data.model_fields_set)
-    if data.paquete_id is not None or departure_fields_sent:
+    if (package_id_sent and data.paquete_id is not None) or (departure_fields_sent and reserva.paquete_id is not None):
         paquete = db.query(Paquete).filter(Paquete.id == reserva.paquete_id).first()
         selected_departure, selected_return = resolve_departure_dates(
             paquete,
@@ -171,8 +182,15 @@ def update_reserva_full(db: Session, reserva_id: int, data: ReservaFullUpdate):
         )
         reserva.fecha_salida = selected_departure
         reserva.fecha_regreso = selected_return
-    if data.hotel_id is not None:
+    elif package_id_sent and data.paquete_id is None:
+        # En modo manual, las fechas pasan a ser opcionales y no se validan contra un paquete.
+        reserva.fecha_salida = data.fecha_salida if "fecha_salida" in data.model_fields_set else reserva.fecha_salida
+        reserva.fecha_regreso = data.fecha_regreso if "fecha_regreso" in data.model_fields_set else reserva.fecha_regreso
+    if "hotel_id" in data.model_fields_set:
         reserva.hotel_id = data.hotel_id
+    for field in ("titulo_viaje", "destino_manual", "hotel_manual", "regimen_manual", "transporte_manual", "moneda", "notas_viaje"):
+        if field in data.model_fields_set:
+            setattr(reserva, field, getattr(data, field))
     if data.vendedor_id is not None:
         reserva.vendedor_id = data.vendedor_id
     if data.cliente_nombre is not None:
