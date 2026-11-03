@@ -15,9 +15,9 @@ def _load_liq(db: Session, liq: Liquidacion) -> LiquidacionResponse:
             cliente_nombre=reserva.cliente_nombre,
             precio_total=reserva.precio_total,
             paquete_id=reserva.paquete_id,
-            paquete_titulo=paquete.titulo_subtitulo if paquete else None,
-            destino_nombre=paquete.destino.nombre if (paquete and paquete.destino) else None,
-            fecha_salida=paquete.fecha_salida if paquete else None,
+            paquete_titulo=paquete.titulo_subtitulo if paquete else reserva.titulo_viaje,
+            destino_nombre=(paquete.destino.nombre if (paquete and paquete.destino) else reserva.destino_manual),
+            fecha_salida=paquete.fecha_salida if paquete else reserva.fecha_salida,
         )
     return LiquidacionResponse(
         id=liq.id,

@@ -47,7 +47,8 @@ def _resolve_transporte_info(reserva: Reserva):
     """Determina si incluye transporte y extrae proveedor, servicio y horarios."""
     paquete = reserva.paquete
     if not paquete:
-        return True, "A CONFIRMAR OK", "Bus Semicama", ""
+        transporte = (reserva.transporte_manual or "").strip()
+        return bool(transporte), transporte or "A CONFIRMAR", "", ""
 
     # Determinar si incluye transporte
     incluye_transporte = bool(
@@ -118,7 +119,7 @@ def get_or_create_default_voucher(db: Session, reserva_id: int) -> Voucher:
         lugar_ascenso = paquete.puntos_ascenso[0].nombre_lugar
 
     # Destino y Tramo
-    destino_nom = paquete.destino.nombre.upper() if paquete and paquete.destino else "DESTINO"
+    destino_nom = (paquete.destino.nombre if paquete and paquete.destino else reserva.destino_manual or "DESTINO").upper()
     tramo = f"BUE / {destino_nom} / BUE"
 
     fecha_sal = reserva.fecha_salida or (paquete.fecha_salida if paquete else None)
@@ -135,17 +136,14 @@ def get_or_create_default_voucher(db: Session, reserva_id: int) -> Voucher:
     cant_pax_txt = f"{reserva.pasajeros_adultos} ADL - {reserva.pasajeros_menores} CHD - 0 INF"
 
     # Detalle hotelería
-    regimen_final = hotel_regimen or "Media Pensión"
+    regimen_final = hotel_regimen or (reserva.regimen_manual if not paquete else None) or "Media Pensión"
     detalle_hab = f"{noches} NOCHES DE ALOJAMIENTO CON REGIMEN {regimen_final.upper()}"
 
-    hotel_nombre_final = hotel.nombre if hotel else "A CONFIRMAR"
+    hotel_nombre_final = hotel.nombre if hotel else (reserva.hotel_manual or "A CONFIRMAR")
     hotel_dir = hotel.direccion if (hotel and getattr(hotel, "direccion", None)) else "-"
     hotel_tel = hotel.telefono if (hotel and getattr(hotel, "telefono", None)) else "-"
 
-    incluye_hoteleria = bool(
-        hotel is not None
-        or (paquete.alojamiento_incluido if paquete else True)
-    )
+    incluye_hoteleria = bool(hotel is not None or reserva.hotel_manual or (paquete.alojamiento_incluido if paquete else False))
 
     existing = get_voucher_by_reserva(db, reserva_id)
     if existing:
