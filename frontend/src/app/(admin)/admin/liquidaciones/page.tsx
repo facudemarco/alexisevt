@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { fetchApi } from "@/lib/api";
-import { adicionalesLiquidacion, type AdicionalPrecio } from "@/lib/liquidacion";
+import { adicionalesLiquidacion, ajustarItemsAlTotal, type AdicionalPrecio } from "@/lib/liquidacion";
 import { Plus, Eye, Trash2, Search, Receipt } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -85,6 +85,7 @@ function NuevaLiquidacionModal({
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [selectedReserva, setSelectedReserva] = useState<ReservaParaSelector | null>(null);
+  const [avisoTotal, setAvisoTotal] = useState(false);
   const [form, setForm] = useState({
     fecha: new Date().toISOString().split("T")[0],
     comision_porcentaje: 15,
@@ -113,7 +114,7 @@ function NuevaLiquidacionModal({
       // Precio base — comisionable
       preItems.push({
         descripcion: "Precio de venta",
-        precio: String(r.paquete.precio_base || r.precio_total),
+        precio: String(r.paquete.precio_base || 0),
         cant_pax: totalPax,
         aplica_comision: true,
       });
@@ -136,11 +137,11 @@ function NuevaLiquidacionModal({
       }
     }
 
-    setItems(
-      preItems.length
-        ? preItems
-        : [{ descripcion: "Precio de venta", precio: String(r.precio_total), cant_pax: totalPax, aplica_comision: true }]
-    );
+    // A reservation total is already the price for the entire booking. Only
+    // use the package breakdown if it adds up to that agreed total.
+    const adjusted = ajustarItemsAlTotal(preItems, r.precio_total);
+    setAvisoTotal(adjusted !== preItems);
+    setItems(adjusted);
   };
 
   const addItem = () =>
@@ -288,6 +289,7 @@ function NuevaLiquidacionModal({
 
               {/* Items */}
               <div>
+                {avisoTotal && <p className="mb-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Se cargó el total pactado como un solo ítem comisionable. Revisá y ajustá el desglose si incluye conceptos sin comisión.</p>}
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-semibold text-gray-700">Ítems</label>
                   <button onClick={addItem} className="flex items-center gap-1 text-xs text-[#1D5D8C] hover:underline">

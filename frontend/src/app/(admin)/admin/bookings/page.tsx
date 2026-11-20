@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { fetchApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { RoomsEditor, validateRooms, type RoomForm } from "@/components/booking-rooms-editor";
 import {
   ChevronRight,
   Loader2,
@@ -36,6 +37,7 @@ interface PuntoAscenso {
 }
 
 interface Pasajero {
+  habitacion_id?: number | null;
   id: number;
   nombre: string;
   apellido: string;
@@ -44,6 +46,14 @@ interface Pasajero {
   telefono?: string;
   punto_ascenso_id?: number;
   punto_ascenso?: PuntoAscenso;
+}
+
+interface Habitacion {
+  id: number;
+  identificacion: string;
+  tipo: string;
+  capacidad: number;
+  observaciones?: string | null;
 }
 
 interface HotelDetalle {
@@ -112,6 +122,7 @@ interface Reserva {
   hotel?: { id: number; nombre: string; direccion?: string; telefono?: string };
   paquete?: PaqueteDetalle;
   pasajeros: Pasajero[];
+  habitaciones: Habitacion[];
 }
 
 interface Destino {
@@ -324,6 +335,22 @@ function DetailModal({ reserva, onClose, onUpdate, onEdit }: {
                 </div>
               )}
 
+              {(reserva.habitaciones || []).length > 0 && (
+                <div className="px-6 py-5 border-b border-gray-200 space-y-3">
+                  <p className="text-sm font-bold text-gray-900">Habitaciones</p>
+                  {reserva.habitaciones.map((room) => {
+                    const members = reserva.pasajeros.filter((p) => p.habitacion_id === room.id);
+                    return <div key={room.id} className="rounded-xl border border-gray-200 p-3 text-sm">
+                      <p className="font-bold">{room.identificacion} · {room.tipo} · {members.length}/{room.capacidad} plazas</p>
+                      {room.observaciones && <p className="text-gray-600">{room.observaciones}</p>}
+                      <p className="text-gray-700">{members.length ? members.map((p) => `${p.nombre} ${p.apellido}`).join(", ") : "Sin pasajeros asignados"}</p>
+                    </div>;
+                  })}
+                </div>
+              )}
+              {reserva.pasajeros.some((p) => !p.habitacion_id) && (
+                <div className="px-6 py-4 border-b border-gray-200 text-sm"><p className="font-bold text-gray-900">Pasajeros sin asignar</p><p className="text-gray-700">{reserva.pasajeros.filter((p) => !p.habitacion_id).map((p) => `${p.nombre} ${p.apellido}`).join(", ")}</p></div>
+              )}
               {/* Pasajeros */}
               {reserva.pasajeros.length > 0 && (
                 <div className="px-6 py-5 border-b border-gray-200">
@@ -559,8 +586,9 @@ function DetailModal({ reserva, onClose, onUpdate, onEdit }: {
 // ─── Edit Booking Modal ───────────────────────────────────────────────────────
 
 interface VendedorOption { id: number; nombre: string; nombre_sistema?: string; }
-interface PaxForm { nombre: string; apellido: string; dni: string; fecha_nacimiento: string; telefono: string; punto_ascenso_id: string; }
+interface PaxForm { id?: number; habitacion_clave?: string; nombre: string; apellido: string; dni: string; fecha_nacimiento: string; telefono: string; punto_ascenso_id: string; }
 const emptyPax = (): PaxForm => ({ nombre: "", apellido: "", dni: "", fecha_nacimiento: "", telefono: "", punto_ascenso_id: "" });
+
 
 function EditBookingModal({ reserva, onClose, onSaved }: {
   reserva: Reserva;
@@ -594,11 +622,14 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
   const [duracionDias, setDuracionDias] = useState(String(reserva.duracion_dias ?? reserva.paquete?.duracion_dias ?? ""));
   const [duracionNoches, setDuracionNoches] = useState(String(reserva.duracion_noches ?? reserva.paquete?.duracion_noches ?? ""));
   const [esBloqueo, setEsBloqueo] = useState(Boolean(reserva.es_bloqueo));
+  const [rooms, setRooms] = useState<RoomForm[]>(() => (reserva.habitaciones || []).map((r) => ({ ...r, clave: `room-${r.id}`, observaciones: r.observaciones || "" })));
 
   // FIX: Cargar punto_ascenso_id existente del pasajero (no vacío)
   const [pasajeros, setPasajeros] = useState<PaxForm[]>(
     reserva.pasajeros.length > 0
       ? reserva.pasajeros.map((p) => ({
+          id: p.id,
+          habitacion_clave: p.habitacion_id ? `room-${p.habitacion_id}` : "",
           nombre: p.nombre,
           apellido: p.apellido,
           dni: p.dni ?? "",
@@ -660,6 +691,7 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
 
   function syncPaxCount(newAdults: number, newMinors: number) {
     const total = newAdults + newMinors;
+    if (total < pasajeros.length && pasajeros.slice(total).some((p) => p.id || p.nombre || p.apellido || p.habitacion_clave) && !window.confirm("Reducir las plazas eliminará pasajeros cargados y sus asignaciones. ¿Continuar?")) return;
     setAdultos(newAdults);
     setMenores(newMinors);
     // Para reservas no bloqueo o con pasajeros ya cargados, sincronizar tamaño
@@ -677,6 +709,7 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
   }
 
   function removePassenger(index: number) {
+    if ((pasajeros[index].id || pasajeros[index].habitacion_clave) && !window.confirm("Se eliminará este pasajero y su asignación. ¿Continuar?")) return;
     setPasajeros((prev) => prev.filter((_, i) => i !== index));
     if (expanded >= index) setExpanded(Math.max(0, expanded - 1));
   }
@@ -687,6 +720,8 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
 
   async function handleSave() {
     if (!clienteNombre.trim()) { setError("Ingresá el nombre del cliente / grupo."); return; }
+    const roomError = validateRooms(rooms, pasajeros);
+    if (roomError) { setError(roomError); return; }
     if ((paqueteDetalle?.tipo_salidas === "DIARIAS" || fechasPaqueteEdit.length > 0) && !fechaSalida) {
       setError("Seleccioná una fecha de salida."); return;
     }
@@ -738,7 +773,11 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
         duracion_dias: duracionDias ? parseInt(duracionDias) : null,
         duracion_noches: duracionNoches ? parseInt(duracionNoches) : null,
         es_bloqueo: esBloqueo,
+        habitaciones: rooms,
         pasajeros: validPax.map((p) => ({
+          id: p.id,
+          habitacion_clave: p.habitacion_clave || undefined,
+          habitacion_id: p.habitacion_clave ? undefined : null,
           nombre: p.nombre.trim(),
           apellido: p.apellido.trim(),
           dni: p.dni.trim() || undefined,
@@ -1065,6 +1104,8 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
                 </div>
               </div>
 
+              <RoomsEditor rooms={rooms} setRooms={setRooms} passengers={pasajeros} setPassengers={setPasajeros} />
+
               {/* Formulario Dinámico de Pasajeros */}
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -1247,6 +1288,7 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
   const [duracionNoches, setDuracionNoches] = useState("");
 
   const [pasajeros, setPasajeros] = useState<PaxForm[]>([emptyPax()]);
+  const [rooms, setRooms] = useState<RoomForm[]>([]);
   const [expanded, setExpanded] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1310,10 +1352,12 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
   }, [paqueteDetalle]);
 
   function syncPaxCount(newTotal: number) {
+    if (newTotal < pasajeros.length && pasajeros.slice(newTotal).some((p) => p.nombre || p.apellido || p.habitacion_clave) && !window.confirm("Reducir las plazas eliminará pasajeros cargados y sus asignaciones. ¿Continuar?")) return false;
     setPasajeros((prev) => {
       if (newTotal > prev.length) return [...prev, ...Array(newTotal - prev.length).fill(null).map(emptyPax)];
       return prev.slice(0, newTotal);
     });
+    return true;
   }
 
   function updatePax(idx: number, field: keyof PaxForm, value: string) {
@@ -1322,6 +1366,8 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
 
   async function handleSave() {
     if (!clienteNombre.trim()) { setError("Ingresá el nombre del cliente / grupo."); return; }
+    const roomError = validateRooms(rooms, mode === "regular" ? pasajeros : []);
+    if (roomError) { setError(roomError); return; }
     if ((paqueteDetalle?.tipo_salidas === "DIARIAS" || fechasPaquete.length > 0) && !fechaSalida) {
       setError("Seleccioná una fecha de salida."); return;
     }
@@ -1357,8 +1403,10 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
         duracion_dias: duracionDias ? parseInt(duracionDias) : undefined,
         duracion_noches: duracionNoches ? parseInt(duracionNoches) : undefined,
         es_bloqueo: mode === "bloqueo",
+        habitaciones: rooms,
         pasajeros: mode === "regular"
           ? pasajeros.map((p) => ({
+              habitacion_clave: p.habitacion_clave || undefined,
               nombre: p.nombre.trim(),
               apellido: p.apellido.trim(),
               dni: p.dni.trim() || undefined,
@@ -1396,7 +1444,10 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
           <div className="flex bg-gray-200/80 p-1 rounded-xl w-fit">
             <button
               type="button"
-              onClick={() => setMode("regular")}
+              onClick={() => {
+                if (mode === "bloqueo") setPasajeros(Array.from({ length: adultos + menores }, emptyPax));
+                setMode("regular");
+              }}
               className={cn(
                 "px-4 py-1.5 rounded-lg text-xs font-bold transition-all",
                 mode === "regular" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
@@ -1407,6 +1458,8 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
             <button
               type="button"
               onClick={() => {
+                if (mode !== "bloqueo" && pasajeros.some((p) => p.nombre || p.apellido || p.habitacion_clave) && !window.confirm("Al pasar a bloqueo se quitarán los pasajeros cargados y sus asignaciones. ¿Continuar?")) return;
+                setPasajeros([]);
                 setMode("bloqueo");
                 if (adultos === 1) setAdultos(20);
               }}
@@ -1607,7 +1660,7 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => { const v = Math.max(1, adultos - 1); setAdultos(v); if (mode === "regular") syncPaxCount(v + menores); }}
+                      onClick={() => { const v = Math.max(1, adultos - 1); if (mode !== "regular" || syncPaxCount(v + menores)) setAdultos(v); }}
                       className="w-8 h-8 border border-gray-300 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold"
                     >
                       −
@@ -1618,14 +1671,13 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
                       value={adultos}
                       onChange={(e) => {
                         const v = Math.max(1, parseInt(e.target.value) || 1);
-                        setAdultos(v);
-                        if (mode === "regular") syncPaxCount(v + menores);
+                        if (mode !== "regular" || syncPaxCount(v + menores)) setAdultos(v);
                       }}
                       className="w-16 text-center font-bold text-gray-800 border border-gray-300 rounded-lg h-8"
                     />
                     <button
                       type="button"
-                      onClick={() => { const v = adultos + 1; setAdultos(v); if (mode === "regular") syncPaxCount(v + menores); }}
+                      onClick={() => { const v = adultos + 1; if (mode !== "regular" || syncPaxCount(v + menores)) setAdultos(v); }}
                       className="w-8 h-8 border border-gray-300 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold"
                     >
                       +
@@ -1637,7 +1689,7 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => { const v = Math.max(0, menores - 1); setMenores(v); if (mode === "regular") syncPaxCount(adultos + v); }}
+                      onClick={() => { const v = Math.max(0, menores - 1); if (mode !== "regular" || syncPaxCount(adultos + v)) setMenores(v); }}
                       className="w-8 h-8 border border-gray-300 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold"
                     >
                       −
@@ -1648,14 +1700,13 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
                       value={menores}
                       onChange={(e) => {
                         const v = Math.max(0, parseInt(e.target.value) || 0);
-                        setMenores(v);
-                        if (mode === "regular") syncPaxCount(adultos + v);
+                        if (mode !== "regular" || syncPaxCount(adultos + v)) setMenores(v);
                       }}
                       className="w-16 text-center font-bold text-gray-800 border border-gray-300 rounded-lg h-8"
                     />
                     <button
                       type="button"
-                      onClick={() => { const v = menores + 1; setMenores(v); if (mode === "regular") syncPaxCount(adultos + v); }}
+                      onClick={() => { const v = menores + 1; if (mode !== "regular" || syncPaxCount(adultos + v)) setMenores(v); }}
                       className="w-8 h-8 border border-gray-300 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold"
                     >
                       +
@@ -1682,6 +1733,8 @@ function CreateBookingModal({ onClose, onCreated }: { onClose: () => void; onCre
                   </p>
                 )}
               </div>
+
+              <RoomsEditor rooms={rooms} setRooms={setRooms} passengers={mode === "regular" ? pasajeros : []} setPassengers={setPasajeros} />
 
               {/* Pasajeros (solo en modo regular) */}
               {mode === "regular" && (

@@ -85,7 +85,7 @@ def _resolve_transporte_info(reserva: Reserva):
     return incluye_transporte, proveedor, servicio, horario
 
 
-def get_or_create_default_voucher(db: Session, reserva_id: int) -> Voucher:
+def get_or_create_default_voucher(db: Session, reserva_id: int, regenerate: bool = False) -> Voucher:
     reserva = (
         db.query(Reserva)
         .options(
@@ -146,37 +146,15 @@ def get_or_create_default_voucher(db: Session, reserva_id: int) -> Voucher:
     incluye_hoteleria = bool(hotel is not None or reserva.hotel_manual or (paquete.alojamiento_incluido if paquete else False))
 
     existing = get_voucher_by_reserva(db, reserva_id)
-    if existing:
-        # Si el voucher existía pero tenía hotel en "A CONFIRMAR" y ahora se detectó hotel, actualizarlo
-        updated = False
-        if existing.hoteleria_hotel_nombre in (None, "", "A CONFIRMAR") and hotel:
-            existing.hoteleria_hotel_nombre = hotel.nombre
-            existing.hoteleria_direccion = hotel_dir
-            existing.hoteleria_telefono = hotel_tel
-            existing.hoteleria_regimen = regimen_final
-            existing.hoteleria_detalle_habitaciones = detalle_hab
-            updated = True
-
-        if not existing.transporte_proveedor or existing.transporte_proveedor == "A CONFIRMAR OK":
-            if proveedor_t != "A CONFIRMAR OK":
-                existing.transporte_proveedor = proveedor_t
-                updated = True
-
-        if not existing.transporte_lugar_ascenso and lugar_ascenso:
-            existing.transporte_lugar_ascenso = lugar_ascenso
-            updated = True
-
-        if updated:
-            db.commit()
-            db.refresh(existing)
-
+    if existing and not regenerate:
+        # La consulta nunca debe modificar campos que el usuario pudo editar.
         return existing
 
     # Crear nuevo voucher
     voucher_num_t = f"{33000 + reserva.id}"
     voucher_num_h = f"{32000 + reserva.id}"
 
-    voucher = Voucher(
+    defaults = dict(
         reserva_id=reserva.id,
         # Transporte
         incluye_transporte=incluye_transporte,
@@ -209,7 +187,13 @@ def get_or_create_default_voucher(db: Session, reserva_id: int) -> Voucher:
         cant_pax_detalle=cant_pax_txt,
     )
 
-    db.add(voucher)
+    if existing:
+        voucher = existing
+        for field, value in defaults.items():
+            setattr(voucher, field, value)
+    else:
+        voucher = Voucher(**defaults)
+        db.add(voucher)
     db.commit()
     db.refresh(voucher)
     return voucher
@@ -217,11 +201,7 @@ def get_or_create_default_voucher(db: Session, reserva_id: int) -> Voucher:
 
 def reset_voucher_defaults(db: Session, reserva_id: int) -> Voucher:
     """Regenera los valores automáticos del voucher basados en la reserva actual."""
-    existing = get_voucher_by_reserva(db, reserva_id)
-    if existing:
-        db.delete(existing)
-        db.commit()
-    return get_or_create_default_voucher(db, reserva_id)
+    return get_or_create_default_voucher(db, reserva_id, regenerate=True)
 
 
 def update_voucher(db: Session, voucher: Voucher, data: VoucherUpdate) -> Voucher:

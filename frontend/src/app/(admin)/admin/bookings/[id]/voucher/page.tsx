@@ -53,6 +53,11 @@ interface VoucherData {
   cant_pax_detalle?: string;
 }
 
+interface BookingRooms {
+  habitaciones: { id: number; identificacion: string; tipo: string; capacidad: number; observaciones?: string | null }[];
+  pasajeros: { id: number; nombre: string; apellido: string; habitacion_id?: number | null }[];
+}
+
 function fmtDate(dateStr?: string) {
   if (!dateStr) return "—";
   const d = dateStr.includes("T") ? new Date(dateStr) : new Date(dateStr + "T00:00:00");
@@ -446,15 +451,17 @@ export default function VoucherPage() {
   const reservaId = params.id as string;
 
   const [voucher, setVoucher] = useState<VoucherData | null>(null);
+  const [bookingRooms, setBookingRooms] = useState<BookingRooms | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showEdit, setShowEdit] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
-    fetchApi(`/vouchers/by-reserva/${reservaId}`)
-      .then((data) => {
+    Promise.all([fetchApi(`/vouchers/by-reserva/${reservaId}`), fetchApi(`/bookings/${reservaId}`)])
+      .then(([data, booking]) => {
         setVoucher(data);
+        setBookingRooms(booking);
       })
       .catch((e) => {
         setError(e instanceof Error ? e.message : "Error al cargar voucher.");
@@ -499,7 +506,7 @@ export default function VoucherPage() {
     if (!confirm("¿Deseás regenerar los datos del voucher con la información actual del paquete y reserva? Los campos modificados manualmente se sobrescribirán.")) return;
     setLoading(true);
     try {
-      const data = await fetchApi(`/vouchers/by-reserva/${reservaId}/reset`, { method: "POST" });
+      const data = await fetchApi(`/vouchers/by-reserva/${reservaId}/reset`, { method: "POST", body: JSON.stringify({ confirmar: true }) });
       setVoucher(data);
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "Error al restablecer");
@@ -799,6 +806,16 @@ export default function VoucherPage() {
           </div>
         )}
 
+        {bookingRooms && bookingRooms.habitaciones.length > 0 && (
+          <div className="bg-white border border-gray-300 rounded-lg p-6 mt-5 text-sm print:break-inside-avoid">
+            <h2 className="font-black uppercase mb-3">Habitaciones y pasajeros</h2>
+            {bookingRooms.habitaciones.map((room) => {
+              const members = bookingRooms.pasajeros.filter((p) => p.habitacion_id === room.id);
+              return <div key={room.id} className="mb-3"><p className="font-bold">{room.identificacion} · {room.tipo} · {members.length}/{room.capacidad} plazas</p><p>{members.length ? members.map((p) => `${p.nombre} ${p.apellido}`).join(", ") : "Sin pasajeros asignados"}</p>{room.observaciones && <p>{room.observaciones}</p>}</div>;
+            })}
+            {bookingRooms.pasajeros.some((p) => !p.habitacion_id) && <p><strong>Sin asignar:</strong> {bookingRooms.pasajeros.filter((p) => !p.habitacion_id).map((p) => `${p.nombre} ${p.apellido}`).join(", ")}</p>}
+          </div>
+        )}
       </div>
 
       {/* Edit Modal */}

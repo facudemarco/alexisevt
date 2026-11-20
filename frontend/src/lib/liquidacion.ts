@@ -4,6 +4,20 @@ export interface AdicionalPrecio {
   aplica_comision?: boolean;
 }
 
+export interface ItemSugerido {
+  descripcion: string;
+  precio: string;
+  cant_pax: number;
+  aplica_comision: boolean;
+}
+
+export function ajustarItemsAlTotal(items: ItemSugerido[], total: number): ItemSugerido[] {
+  const sugerido = items.reduce((sum, item) => sum + Number(item.precio) * item.cant_pax, 0);
+  return items.length && Math.abs(sugerido - total) < 0.01
+    ? items
+    : [{ descripcion: "Precio total de la reserva", precio: String(total), cant_pax: 1, aplica_comision: true }];
+}
+
 export function adicionalesLiquidacion(
   adicionales: AdicionalPrecio[] | undefined,
   precioAdicional: number,

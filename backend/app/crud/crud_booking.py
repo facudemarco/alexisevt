@@ -1,10 +1,11 @@
 from datetime import date
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy import asc
 from fastapi import HTTPException
 from app.models.package import Paquete
 from typing import Optional
-from app.models.booking import Reserva, Pasajero, ReservaStatus
+from app.models.booking import Reserva, Pasajero, HabitacionReserva, ReservaStatus
 from app.schemas.booking import ReservaCreate, ReservaFullUpdate
 
 
@@ -96,6 +97,86 @@ def resolve_departure_dates(
     return salida.fecha_salida, fecha_regreso
 
 
+def sync_rooms_and_passengers(db, reserva, habitaciones, pasajeros):
+    """Apply a complete room/passenger snapshot inside the caller's transaction."""
+    existing_rooms = {room.id: room for room in reserva.habitaciones}
+    existing_passengers = {p.id: p for p in reserva.pasajeros}
+    keys = {}
+    kept_rooms = set(existing_rooms)
+    if habitaciones is not None:
+        kept_rooms = set()
+        for item in habitaciones:
+            if item.id is not None:
+                if item.id not in existing_rooms or item.id in kept_rooms:
+                    raise HTTPException(422, "Habitación duplicada o ajena a la reserva.")
+                room = existing_rooms[item.id]
+            else:
+                room = HabitacionReserva(reserva=reserva)
+                db.add(room)
+            for field in ("identificacion", "tipo", "capacidad", "observaciones"):
+                setattr(room, field, getattr(item, field))
+            db.flush()
+            kept_rooms.add(room.id)
+            if item.clave:
+                if item.clave in keys:
+                    raise HTTPException(422, "Clave de habitación duplicada.")
+                keys[item.clave] = room.id
+    seen = set()
+    documents = set()
+    if pasajeros is not None:
+        for item in pasajeros:
+            document = (item.dni or "").strip().casefold()
+            if document and document in documents:
+                raise HTTPException(422, "Hay pasajeros con el mismo documento en la reserva.")
+            if document:
+                documents.add(document)
+            if item.id is not None:
+                if item.id not in existing_passengers or item.id in seen:
+                    raise HTTPException(422, "Pasajero duplicado o ajeno a la reserva.")
+                passenger = existing_passengers[item.id]
+                seen.add(item.id)
+            else:
+                # Older clients do not send IDs. Match an unambiguous document
+                # so a routine edit does not replace existing passengers.
+                matches = [p for p in existing_passengers.values() if document and
+                           (p.dni or "").strip().casefold() == document and p.id not in seen]
+                if len(matches) == 1:
+                    passenger = matches[0]
+                    seen.add(passenger.id)
+                else:
+                    passenger = Pasajero(reserva=reserva)
+                    db.add(passenger)
+            room_id = item.habitacion_id if "habitacion_id" in item.model_fields_set else passenger.habitacion_id
+            if item.habitacion_clave:
+                if ("habitacion_id" in item.model_fields_set and item.habitacion_id is not None) or item.habitacion_clave not in keys:
+                    raise HTTPException(422, "Referencia de habitación inválida.")
+                room_id = keys[item.habitacion_clave]
+            if room_id is not None and room_id not in kept_rooms:
+                raise HTTPException(422, "La habitación no pertenece a la reserva.")
+            for field in ("nombre", "apellido", "dni", "fecha_nacimiento", "telefono", "punto_ascenso_id"):
+                setattr(passenger, field, getattr(item, field))
+            passenger.habitacion_id = room_id
+        for passenger_id, passenger in existing_passengers.items():
+            if passenger_id not in seen:
+                db.delete(passenger)
+    elif any(p.habitacion_id not in kept_rooms for p in reserva.pasajeros if p.habitacion_id is not None):
+        raise HTTPException(422, "Reasigná los pasajeros antes de quitar la habitación.")
+    db.flush()
+    counts = {}
+    # Use a current locking read, not a potentially older REPEATABLE READ
+    # snapshot, when validating capacity after concurrent edits.
+    assigned = db.query(Pasajero).filter(Pasajero.reserva_id == reserva.id, Pasajero.habitacion_id.isnot(None)).populate_existing().with_for_update().all()
+    for passenger in assigned:
+        counts[passenger.habitacion_id] = counts.get(passenger.habitacion_id, 0) + 1
+    for room_id, count in counts.items():
+        room = db.get(HabitacionReserva, room_id)
+        if room_id not in kept_rooms or count > room.capacidad:
+            raise HTTPException(422, "La habitación no pertenece a la reserva o supera su capacidad.")
+    for room_id, room in existing_rooms.items():
+        if room_id not in kept_rooms:
+            db.delete(room)
+
+
 def create_reserva(db: Session, reserva: ReservaCreate, vendedor_id: int, auto_approve: bool = False):
     paquete = None
     fecha_salida, fecha_regreso = reserva.fecha_salida, reserva.fecha_regreso
@@ -133,18 +214,7 @@ def create_reserva(db: Session, reserva: ReservaCreate, vendedor_id: int, auto_a
     db.add(db_reserva)
     db.flush()
 
-    if reserva.pasajeros:
-        for p in reserva.pasajeros:
-            db_pasajero = Pasajero(
-                reserva_id=db_reserva.id,
-                nombre=p.nombre,
-                apellido=p.apellido,
-                dni=p.dni,
-                fecha_nacimiento=p.fecha_nacimiento,
-                telefono=p.telefono,
-                punto_ascenso_id=p.punto_ascenso_id,
-            )
-            db.add(db_pasajero)
+    sync_rooms_and_passengers(db, db_reserva, reserva.habitaciones, reserva.pasajeros)
 
     db.commit()
     return get_reserva(db, db_reserva.id)
@@ -162,9 +232,15 @@ def update_reserva_estado(db: Session, reserva_id: int, nuevo_estado: str, motiv
 
 
 def update_reserva_full(db: Session, reserva_id: int, data: ReservaFullUpdate):
-    reserva = get_reserva(db, reserva_id)
+    # Lock the booking and use locking reads for its children as well. On
+    # MySQL these see the latest committed values under REPEATABLE READ.
+    reserva = db.query(Reserva).filter(Reserva.id == reserva_id).populate_existing().with_for_update().first()
     if not reserva:
         return None
+    rooms = db.query(HabitacionReserva).filter_by(reserva_id=reserva_id).populate_existing().with_for_update().all()
+    passengers = db.query(Pasajero).filter_by(reserva_id=reserva_id).populate_existing().with_for_update().all()
+    set_committed_value(reserva, "habitaciones", rooms)
+    set_committed_value(reserva, "pasajeros", passengers)
 
     package_id_sent = "paquete_id" in data.model_fields_set
     if package_id_sent:
@@ -216,22 +292,7 @@ def update_reserva_full(db: Session, reserva_id: int, data: ReservaFullUpdate):
     if data.es_bloqueo is not None:
         reserva.es_bloqueo = data.es_bloqueo
 
-    if data.pasajeros is not None:
-        # Replace all passengers
-        for p in reserva.pasajeros:
-            db.delete(p)
-        db.flush()
-        for p in data.pasajeros:
-            db_pasajero = Pasajero(
-                reserva_id=reserva.id,
-                nombre=p.nombre,
-                apellido=p.apellido,
-                dni=p.dni,
-                fecha_nacimiento=p.fecha_nacimiento,
-                telefono=p.telefono,
-                punto_ascenso_id=p.punto_ascenso_id,
-            )
-            db.add(db_pasajero)
+    sync_rooms_and_passengers(db, reserva, data.habitaciones, data.pasajeros)
 
     db.commit()
     return get_reserva(db, reserva.id)

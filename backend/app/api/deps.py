@@ -5,5 +5,8 @@ def get_db() -> Generator:
     try:
         db = SessionLocal()
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

@@ -5,8 +5,13 @@ from app.api.deps_security import get_current_user, get_current_admin_user
 from app.crud import crud_voucher, crud_booking
 from app.schemas.voucher import VoucherResponse, VoucherUpdate
 from app.models.user import User, UserRole
+from pydantic import BaseModel
 
 router = APIRouter()
+
+
+class ConfirmarRegeneracion(BaseModel):
+    confirmar: bool = False
 
 
 @router.get("/by-reserva/{reserva_id}", response_model=VoucherResponse)
@@ -46,10 +51,13 @@ def update_voucher(
 @router.post("/by-reserva/{reserva_id}/reset", response_model=VoucherResponse)
 def reset_voucher(
     reserva_id: int,
+    confirmacion: ConfirmarRegeneracion,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
 ):
     reserva = crud_booking.get_reserva(db, reserva_id)
     if not reserva:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
+    if not confirmacion.confirmar:
+        raise HTTPException(status_code=400, detail="Confirmá que se sobrescribirán los datos editados del voucher.")
     return crud_voucher.reset_voucher_defaults(db, reserva_id)

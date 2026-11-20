@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime, date
 from app.models.booking import ReservaStatus
@@ -7,7 +7,24 @@ from app.schemas.user import User
 from app.schemas.config import Hotel, PuntoAscenso
 
 
+class HabitacionInput(BaseModel):
+    id: Optional[int] = None
+    clave: Optional[str] = None
+    identificacion: str = Field(min_length=1, max_length=255)
+    tipo: str = Field(min_length=1, max_length=100)
+    capacidad: int = Field(gt=0)
+    observaciones: Optional[str] = None
+
+
+class Habitacion(HabitacionInput):
+    id: int
+    reserva_id: int
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PasajeroBase(BaseModel):
+    habitacion_id: Optional[int] = None
+    habitacion_clave: Optional[str] = None
     nombre: str
     apellido: str
     dni: Optional[str] = None
@@ -17,7 +34,7 @@ class PasajeroBase(BaseModel):
 
 
 class PasajeroCreate(PasajeroBase):
-    pass
+    id: Optional[int] = None
 
 
 class Pasajero(PasajeroBase):
@@ -53,6 +70,7 @@ class ReservaBase(BaseModel):
 
 class ReservaCreate(ReservaBase):
     pasajeros: List[PasajeroCreate] = []
+    habitaciones: List[HabitacionInput] = []
     vendedor_id: Optional[int] = None  # Admin puede asignar a un vendedor específico
 
 
@@ -86,6 +104,7 @@ class ReservaFullUpdate(BaseModel):
     duracion_noches: Optional[int] = None
     es_bloqueo: Optional[bool] = None
     pasajeros: Optional[List[PasajeroCreate]] = None
+    habitaciones: Optional[List[HabitacionInput]] = None
 
 
 class ReservaInDBBase(ReservaBase):
@@ -103,3 +122,4 @@ class Reserva(ReservaInDBBase):
     paquete: Optional[Paquete] = None
     hotel: Optional[Hotel] = None
     pasajeros: List[Pasajero] = []
+    habitaciones: List[Habitacion] = []
