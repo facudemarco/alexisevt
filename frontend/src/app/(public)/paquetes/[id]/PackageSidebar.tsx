@@ -5,6 +5,7 @@ import { Users, ChevronDown, ChevronUp, Loader2, CheckCircle, MessageCircle, Clo
 import { Paquete } from "@/types/package";
 import { useAuth } from "@/components/auth-provider";
 import { fetchApi } from "@/lib/api";
+import { RoomsEditor, validateRooms, type RoomForm } from "@/components/booking-rooms-editor";
 
 interface Vendedor { id: number; nombre: string; nombre_sistema?: string; }
 
@@ -13,6 +14,7 @@ interface Props {
 }
 
 interface PasajeroForm {
+  habitacion_clave?: string;
   nombre: string;
   apellido: string;
   dni: string;
@@ -86,6 +88,7 @@ export function PackageSidebar({ paquete }: Props) {
   // Step 2 — per-passenger forms
   const [step, setStep] = useState<"select" | "passengers" | "success">("select");
   const [pasajeros, setPasajeros] = useState<PasajeroForm[]>([emptyPax()]);
+  const [rooms, setRooms] = useState<RoomForm[]>([]);
   const [expanded, setExpanded] = useState<number>(0); // which accordion is open
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -114,6 +117,7 @@ export function PackageSidebar({ paquete }: Props) {
     setError("");
     const count = totalPax;
     const current = pasajeros.length;
+    if (count < current && pasajeros.slice(count).some((p) => p.nombre || p.apellido || p.habitacion_clave) && !window.confirm("Reducir las plazas eliminará pasajeros cargados y sus asignaciones. ¿Continuar?")) return;
     if (count > current) {
       setPasajeros([...pasajeros, ...Array(count - current).fill(null).map(emptyPax)]);
     } else {
@@ -128,6 +132,8 @@ export function PackageSidebar({ paquete }: Props) {
   }
 
   function validatePassengers(): boolean {
+    const roomError = validateRooms(rooms, pasajeros);
+    if (roomError) { setError(roomError); return false; }
     for (let i = 0; i < pasajeros.length; i++) {
       const p = pasajeros[i];
       if (!p.nombre.trim() || !p.apellido.trim()) {
@@ -175,7 +181,9 @@ export function PackageSidebar({ paquete }: Props) {
         fecha_salida: fechaIda || paquete.fecha_salida,
         fecha_regreso: salidaSeleccionada?.fecha_regreso ?? paquete.fecha_regreso,
         hotel_id: hotelActual?.hotel_id ?? undefined,
+        habitaciones: rooms,
         pasajeros: pasajeros.map((p) => ({
+          habitacion_clave: p.habitacion_clave || undefined,
           nombre: p.nombre,
           apellido: p.apellido,
           dni: p.dni || undefined,
@@ -247,6 +255,14 @@ export function PackageSidebar({ paquete }: Props) {
       msg += `\n`;
     }
     msg += `*Precio total estimado:* ${formatPrice(precioTotal, paquete.moneda)}\n`;
+    if (rooms.length) {
+      msg += `\n── *Habitaciones* ──\n`;
+      rooms.forEach((room) => {
+        const members = pasajeros.filter((p) => p.habitacion_clave === room.clave);
+        msg += `${room.identificacion} · ${room.tipo} · ${members.length}/${room.capacidad}: ${members.map((p) => `${p.nombre} ${p.apellido}`).join(", ") || "sin asignar"}\n`;
+        if (room.observaciones) msg += `   Observaciones: ${room.observaciones}\n`;
+      });
+    }
     msg += `\n── *Detalle de pasajeros* ──\n`;
 
     pasajeros.forEach((p, idx) => {
@@ -431,6 +447,8 @@ export function PackageSidebar({ paquete }: Props) {
             <p className="font-bold text-gray-800 text-sm">{totalPax} pasajero{totalPax !== 1 ? "s" : ""} · {formatPrice(precioTotal, paquete.moneda)}</p>
             <button onClick={() => setStep("select")} className="text-xs text-gray-400 hover:text-gray-600 font-medium">← Volver</button>
           </div>
+
+          <div className="p-4"><RoomsEditor rooms={rooms} setRooms={setRooms} passengers={pasajeros} setPassengers={setPasajeros} /></div>
 
           {pasajeros.map((pax, idx) => (
             <div key={idx} className={`border-b border-gray-100 last:border-0`}>

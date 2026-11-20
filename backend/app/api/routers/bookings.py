@@ -102,6 +102,21 @@ def read_reservas(
     else:
         return crud_booking.get_reservas_by_vendedor(db, vendedor_id=current_user.id, skip=skip, limit=limit)
 
+
+@router.get("/{reserva_id}", response_model=Reserva)
+def read_reserva(
+    reserva_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    reserva = crud_booking.get_reserva(db, reserva_id)
+    if not reserva:
+        raise HTTPException(status_code=404, detail="Reserva no encontrada")
+    if current_user.rol != UserRole.ADMIN and reserva.vendedor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No tenés permiso para ver esta reserva")
+    return reserva
+
+
 class EstadoUpdate(BaseModel):
     estado: str
     motivo: Optional[str] = None
@@ -136,9 +151,8 @@ def update_reserva_full(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
 ):
-    reserva = crud_booking.get_reserva(db, reserva_id)
-    if not reserva:
-        raise HTTPException(status_code=404, detail="Reserva no encontrada")
     updated = crud_booking.update_reserva_full(db, reserva_id, body)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Reserva no encontrada")
     return updated
 

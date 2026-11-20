@@ -10,11 +10,24 @@ class ReservaStatus(str, enum.Enum):
     RECHAZADA = "Rechazada"
 
 
+class HabitacionReserva(Base):
+    __tablename__ = "habitaciones_reserva"
+
+    id = Column(Integer, primary_key=True)
+    reserva_id = Column(Integer, ForeignKey("reservas.id", ondelete="CASCADE"), nullable=False, index=True)
+    identificacion = Column(String(255), nullable=False)
+    tipo = Column(String(100), nullable=False)
+    capacidad = Column(Integer, nullable=False)
+    observaciones = Column(Text, nullable=True)
+    reserva = relationship("Reserva", back_populates="habitaciones")
+
+
 class Pasajero(Base):
     __tablename__ = "pasajeros"
 
     id = Column(Integer, primary_key=True, index=True)
     reserva_id = Column(Integer, ForeignKey("reservas.id", ondelete="CASCADE"))
+    habitacion_id = Column(Integer, ForeignKey("habitaciones_reserva.id", ondelete="SET NULL"), nullable=True, index=True)
     nombre = Column(String(255), nullable=False)
     apellido = Column(String(255), nullable=False)
     dni = Column(String(20), nullable=True)
@@ -69,5 +82,6 @@ class Reserva(Base):
     paquete = relationship("Paquete", back_populates="reservas")
     hotel = relationship("Hotel")
     pasajeros = relationship("Pasajero", back_populates="reserva", cascade="all, delete-orphan")
+    habitaciones = relationship("HabitacionReserva", back_populates="reserva", cascade="all, delete-orphan")
     liquidacion = relationship("Liquidacion", back_populates="reserva", uselist=False)
     voucher = relationship("Voucher", back_populates="reserva", uselist=False, cascade="all, delete-orphan")

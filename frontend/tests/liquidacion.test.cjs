@@ -6,7 +6,17 @@ const source = fs.readFileSync(require.resolve('../src/lib/liquidacion.ts'), 'ut
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } });
 const helper = { exports: {} };
 new Function('exports', compiled.outputText)(helper.exports);
-const { adicionalesLiquidacion, previewComision } = helper.exports;
+const { adicionalesLiquidacion, previewComision, ajustarItemsAlTotal } = helper.exports;
+
+test('respeta el total de la reserva para manuales y desgloses de paquete', () => {
+  assert.deepEqual(ajustarItemsAlTotal([], 600), [
+    { descripcion: 'Precio total de la reserva', precio: '600', cant_pax: 1, aplica_comision: true },
+  ]);
+  const items = [{ descripcion: 'Base', precio: '100', cant_pax: 6, aplica_comision: true }];
+  assert.deepEqual(ajustarItemsAlTotal(items, 600), items);
+  assert.equal(ajustarItemsAlTotal(items, 500)[0].cant_pax, 1);
+  assert.equal(ajustarItemsAlTotal(items, 500)[0].precio, '500');
+});
 
 test('desglosa adicionales sin duplicar el total y respeta comisión explícita o predeterminada', () => {
   const items = adicionalesLiquidacion([
