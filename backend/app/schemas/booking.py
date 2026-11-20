@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, List
 from datetime import datetime, date
 from app.models.booking import ReservaStatus
@@ -14,6 +14,14 @@ class HabitacionInput(BaseModel):
     tipo: str = Field(min_length=1, max_length=100)
     capacidad: int = Field(gt=0)
     observaciones: Optional[str] = None
+
+    @field_validator("identificacion", "tipo")
+    @classmethod
+    def required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Este campo no puede estar vacío.")
+        return value
 
 
 class Habitacion(HabitacionInput):

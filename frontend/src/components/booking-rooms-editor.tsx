@@ -43,6 +43,8 @@ export function RoomsEditor<P extends RoomPassenger>({ rooms, setRooms, passenge
 }
 
 export function validateRooms(rooms: RoomForm[], passengers: RoomPassenger[]): string | null {
+  const incomplete = passengers.findIndex((p) => p.habitacion_clave && (!p.nombre.trim() || !p.apellido.trim()));
+  if (incomplete >= 0) return `Completá nombre y apellido del pasajero ${incomplete + 1} o quitá su asignación de habitación.`;
   for (const room of rooms) {
     if (!room.identificacion.trim() || !room.tipo.trim() || !Number.isInteger(room.capacidad) || room.capacidad < 1) return "Completá identificación, tipo y capacidad válida de cada habitación.";
     if (passengers.filter((p) => p.habitacion_clave === room.clave).length > room.capacidad) return `La capacidad de ${room.identificacion} está excedida.`;

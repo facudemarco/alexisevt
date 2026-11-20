@@ -105,6 +105,9 @@ def test_invalid_assignment_duplicate_and_capacity_are_atomic(api):
     bad = group()
     bad["pasajeros"][1]["dni"] = bad["pasajeros"][0]["dni"]
     assert client.post("/bookings/", json=bad).status_code == 422
+    bad = group()
+    bad["habitaciones"][0]["identificacion"] = "   "
+    assert client.post("/bookings/", json=bad).status_code == 422
     with sessions() as db:
         assert db.query(Reserva).count() == 2
     current = client.get(f"/bookings/{booking['id']}").json()

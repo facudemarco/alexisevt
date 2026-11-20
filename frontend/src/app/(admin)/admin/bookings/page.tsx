@@ -737,9 +737,9 @@ function EditBookingModal({ reserva, onClose, onSaved }: {
       // En bloqueos, si se ingresó algo en una fila, exigir nombre y apellido
       for (let i = 0; i < pasajeros.length; i++) {
         const p = pasajeros[i];
-        if (p.nombre.trim() || p.apellido.trim() || p.dni.trim()) {
+        if (p.nombre.trim() || p.apellido.trim() || p.dni.trim() || p.habitacion_clave) {
           if (!p.nombre.trim() || !p.apellido.trim()) {
-            setError(`Completá nombre y apellido del pasajero ${i + 1}.`);
+            setError(`Completá nombre y apellido del pasajero ${i + 1} o quitá su asignación de habitación.`);
             setExpanded(i);
             return;
           }

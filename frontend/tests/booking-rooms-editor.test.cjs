@@ -51,5 +51,6 @@ test('valida capacidad, tipo e identificación', () => {
   const people = [{ nombre: 'Ana', apellido: 'A', habitacion_clave: 'a' }, { nombre: 'Beto', apellido: 'B', habitacion_clave: 'a' }];
   assert.match(validateRooms([room], people), /capacidad/);
   assert.match(validateRooms([{ ...room, identificacion: ' ' }], []), /identificación/);
+  assert.match(validateRooms([room], [{ nombre: '', apellido: '', habitacion_clave: 'a' }]), /quitá su asignación/);
   assert.equal(validateRooms([{ ...room, capacidad: 2 }], people), null);
 });
