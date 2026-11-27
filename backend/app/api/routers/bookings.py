@@ -8,7 +8,8 @@ from datetime import date
 from sqlalchemy import func, or_, and_
 from sqlalchemy.orm import joinedload
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from openpyxl.styles import Font
+from openpyxl.utils import get_column_letter
 from app.models.booking import Reserva as ReservaModel, ReservaStatus
 from app.models.package import Paquete
 from app.models.config import Destino
@@ -135,27 +136,35 @@ def export_passengers(
         raise HTTPException(404, "No hay pasajeros cargados en reservas aprobadas para ese destino y fecha.")
     wb = Workbook()
     ws = wb.active
-    ws.title = "Pasajeros"
-    ws.merge_cells("B2:F2")
-    ws["B2"] = f"{destino.nombre} - {fecha_salida:%d/%m/%Y}"
-    ws["B2"].font = Font(bold=True, size=14)
-    ws["B2"].alignment = Alignment(horizontal="center")
-    for col, value in enumerate(["N° RESERVA", "N°", "APELLIDO", "NOMBRE", "DNI"], 2):
-        cell = ws.cell(3, col, value)
-        cell.font = Font(bold=True)
-        cell.fill = PatternFill("solid", fgColor="D9EAF7")
-    edge = Side(style="thin", color="000000")
+    ws.title = "Lista"
+    headers = ["Numero", "BUS", "APELLIDO", "NOMBRES", "DNI/LE/CI", "F. NAC.",
+               "TELEFONO", "PAX", "HOTEL", "SERVICIO", "SUBE EN", "FILE", "VENDIO", "OBSERVACIONES"]
+    ws.append(headers)
     for idx, (reserva, pasajero) in enumerate(pasajeros, 1):
-        values = [reserva.id, idx, pasajero.apellido, pasajero.nombre, pasajero.dni or ""]
-        for col, value in enumerate(values, 2):
-            cell = ws.cell(idx + 3, col)
+        paquete = reserva.paquete
+        vendedor = reserva.vendedor
+        hotel = reserva.hotel.nombre if reserva.hotel else reserva.hotel_manual
+        servicio = (paquete.transporte_tipo if paquete else reserva.transporte_manual) or "-"
+        punto = pasajero.punto_ascenso.nombre_lugar if pasajero.punto_ascenso else "-"
+        nombre_vendedor = (vendedor.nombre_sistema or vendedor.nombre) if vendedor else "-"
+        values = [idx, "-", pasajero.apellido, pasajero.nombre, pasajero.dni or "-",
+                  pasajero.fecha_nacimiento or "-", pasajero.telefono or "-", "-",
+                  hotel or "-", servicio, punto, str(reserva.id), nombre_vendedor, "-"]
+        for col, value in enumerate(values, 1):
+            cell = ws.cell(idx + 1, col)
             cell.value = value
             if isinstance(value, str):
                 cell.data_type = "s"
-            cell.border = Border(left=edge, right=edge, top=edge, bottom=edge)
-    for col, width in {"A": 3, "B": 15, "C": 7, "D": 25, "E": 30, "F": 18}.items():
-        ws.column_dimensions[col].width = width
-    ws.freeze_panes = "D4"
+            if col == 6 and pasajero.fecha_nacimiento:
+                cell.number_format = "dd/mm/yyyy"
+    widths = [9, 8, 22, 25, 16, 14, 18, 8, 25, 20, 30, 12, 25, 30]
+    for col, width in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+    for row in ws.iter_rows():
+        for cell in row:
+            cell.font = Font(name="Times New Roman", size=10, bold=cell.row == 1)
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
     out = io.BytesIO()
     wb.save(out)
     out.seek(0)
