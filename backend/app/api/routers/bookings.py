@@ -4,6 +4,14 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 import io
+from datetime import date
+from sqlalchemy import func, or_, and_
+from sqlalchemy.orm import joinedload
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from app.models.booking import Reserva as ReservaModel, ReservaStatus
+from app.models.package import Paquete
+from app.models.config import Destino
 
 from app.api.deps import get_db
 from app.api.deps_security import get_current_user, get_current_admin_user
@@ -101,6 +109,57 @@ def read_reservas(
         return crud_booking.get_todas_reservas(db, skip=skip, limit=limit, estado=estado, destino_id=destino_id)
     else:
         return crud_booking.get_reservas_by_vendedor(db, vendedor_id=current_user.id, skip=skip, limit=limit)
+
+
+@router.get("/export/passengers")
+def export_passengers(
+    destino_id: int,
+    fecha_salida: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    destino = db.query(Destino).filter(Destino.id == destino_id).first()
+    if not destino:
+        raise HTTPException(404, "Destino no encontrado")
+    reservas = (db.query(ReservaModel)
+        .outerjoin(Paquete, ReservaModel.paquete_id == Paquete.id)
+        .options(joinedload(ReservaModel.pasajeros))
+        .filter(ReservaModel.estado_reserva == ReservaStatus.APROBADA)
+        .filter(or_(Paquete.destino_id == destino_id,
+                    and_(ReservaModel.paquete_id.is_(None),
+                         func.lower(func.trim(ReservaModel.destino_manual)) == destino.nombre.strip().lower())))
+        .filter(func.coalesce(ReservaModel.fecha_salida, Paquete.fecha_salida) == fecha_salida)
+        .order_by(ReservaModel.id).all())
+    pasajeros = [(r, p) for r in reservas for p in sorted(r.pasajeros, key=lambda p: p.id)]
+    if not pasajeros:
+        raise HTTPException(404, "No hay pasajeros cargados en reservas aprobadas para ese destino y fecha.")
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Pasajeros"
+    ws.merge_cells("B2:F2")
+    ws["B2"] = f"{destino.nombre} - {fecha_salida:%d/%m/%Y}"
+    ws["B2"].font = Font(bold=True, size=14)
+    ws["B2"].alignment = Alignment(horizontal="center")
+    for col, value in enumerate(["N° RESERVA", "N°", "APELLIDO", "NOMBRE", "DNI"], 2):
+        cell = ws.cell(3, col, value)
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill("solid", fgColor="D9EAF7")
+    edge = Side(style="thin", color="000000")
+    for idx, (reserva, pasajero) in enumerate(pasajeros, 1):
+        values = [reserva.id, idx, pasajero.apellido, pasajero.nombre, pasajero.dni or ""]
+        for col, value in enumerate(values, 2):
+            cell = ws.cell(idx + 3, col)
+            cell.value = value
+            if isinstance(value, str):
+                cell.data_type = "s"
+            cell.border = Border(left=edge, right=edge, top=edge, bottom=edge)
+    for col, width in {"A": 3, "B": 15, "C": 7, "D": 25, "E": 30, "F": 18}.items():
+        ws.column_dimensions[col].width = width
+    ws.freeze_panes = "D4"
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return StreamingResponse(out, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f'attachment; filename="pasajeros-{destino_id}-{fecha_salida}.xlsx"'})
 
 
 @router.get("/{reserva_id}", response_model=Reserva)

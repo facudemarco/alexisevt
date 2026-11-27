@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { fetchApi } from "@/lib/api";
+import Cookies from "js-cookie";
 import { cn } from "@/lib/utils";
 import { RoomsEditor, validateRooms, type RoomForm } from "@/components/booking-rooms-editor";
 import {
@@ -1872,6 +1873,22 @@ export default function BookingsPage() {
   const [filterReservaId, setFilterReservaId]     = useState("");
   const [filterFechaSalida, setFilterFechaSalida] = useState("");
 
+  const [exportError, setExportError] = useState("");
+  const [exporting, setExporting] = useState(false);
+
+  async function exportPassengers() {
+    if (!filterDestino || !filterFechaSalida) { setExportError("Seleccioná un destino y una fecha de salida para exportar."); return; }
+    setExportError(""); setExporting(true);
+    try {
+      const params = new URLSearchParams({ destino_id: filterDestino, fecha_salida: filterFechaSalida });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/export/passengers?${params}`, { headers: { Authorization: `Bearer ${Cookies.get("access_token") ?? ""}` } });
+      if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.detail || "No se pudo exportar la lista."); }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a"); link.href = url; link.download = `pasajeros-${filterFechaSalida}.xlsx`; link.click(); URL.revokeObjectURL(url);
+    } catch (e) { setExportError(e instanceof Error ? e.message : "No se pudo exportar la lista."); }
+    finally { setExporting(false); }
+  }
+
   const [sortBy, setSortBy] = useState<string>("id");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -2020,6 +2037,10 @@ export default function BookingsPage() {
             className="h-10 rounded-lg border-2 border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 focus:outline-none focus:border-[#1D5D8C] transition-colors"
           />
         </div>
+
+        <button type="button" onClick={exportPassengers} disabled={exporting} className="h-10 px-4 rounded-lg bg-emerald-700 text-white text-sm font-bold disabled:opacity-50">{exporting ? "Exportando…" : "Exportar lista de pasajeros"}</button>
+        <p className="w-full text-xs text-gray-600">La lista incluye pasajeros de reservas aprobadas para el destino y la fecha seleccionados.</p>
+        {exportError && <p role="alert" className="w-full text-sm text-red-700">{exportError}</p>}
 
         {hasFilters && (
           <button
