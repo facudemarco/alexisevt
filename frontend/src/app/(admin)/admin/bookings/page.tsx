@@ -2038,7 +2038,7 @@ export default function BookingsPage() {
           />
         </div>
 
-        <button type="button" onClick={exportPassengers} disabled={exporting} className="h-10 px-4 rounded-lg bg-emerald-700 text-white text-sm font-bold disabled:opacity-50">{exporting ? "Exportando…" : "Exportar lista de pasajeros"}</button>
+        <button type="button" onClick={exportPassengers} disabled={exporting || !filterDestino || !filterFechaSalida} className="h-10 px-4 rounded-lg bg-emerald-700 text-white text-sm font-bold disabled:bg-gray-400 disabled:opacity-60 disabled:cursor-not-allowed">{exporting ? "Exportando…" : "Exportar lista de pasajeros"}</button>
         <p className="w-full text-xs text-gray-600">La lista incluye pasajeros de reservas aprobadas para el destino y la fecha seleccionados.</p>
         {exportError && <p role="alert" className="w-full text-sm text-red-700">{exportError}</p>}
 
